@@ -7,6 +7,11 @@ smallest practical tasks and queues them for the agents. Both use the same inter
   `list_repos`, `get_repo_readme`, `create_tasks`, `list_tasks`, `get_task`, `get_status`, `update_task`,
   `upload_file`. `list_repos` shows the repositories agents may work on, so the controller can put each task
   in the right one, or plan a new repository (`repo: "new:<name>"`) for a new project.
+* **GitHub issues**, for controllers that can't reach the VM (for example Claude in a claude.ai cloud
+  session, whose network policy blocks trycloudflare.com and workers.dev): turn on *Take tasks from GitHub
+  issues* in Settings → GitHub. Issues labelled `devenv-task` in the private control repository
+  (`devenv-control` by default, created for you) become tasks, and progress comes back as comments. The
+  format is in the planning guide and on the Controllers page.
 * **REST API** described by [openapi.json](openapi.json) (also served at `/openapi.json`, docs at `/docs`).
 * **Planning guide**: [planning-prompt.md](planning-prompt.md), also returned by `get_planning_guide`.
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { usePoll } from "../usePoll";
+import type { InboxStatus } from "../types";
 
 type Row = { name: string; created_at: string; last_used_at: string | null; revoked: number };
 type Created = { name: string; token: string; mcp_url: string; mcp_url_with_token: string; openapi_url: string };
@@ -33,6 +34,7 @@ export default function Controllers() {
         {data?.urls.stable?.url && " This workers.dev address stays the same when the tunnel restarts."}
         {data?.urls.tunnel_mode === "quick" && data?.urls.public && !data?.urls.stable?.url && " This quick-tunnel address changes when the tunnel restarts; update your controllers if it does."}
       </p>
+      <InboxCard />
       <section className="card">
         <h2>Connection details</h2>
         <table>
@@ -87,5 +89,41 @@ export default function Controllers() {
         </table>
       </section>
     </div>
+  );
+}
+
+function InboxCard() {
+  const { data } = usePoll<InboxStatus>("/api/inbox", 0);
+  if (!data) return null;
+  return (
+    <section className="card">
+      <h2>Plan through GitHub issues</h2>
+      {data.enabled ? (
+        <>
+          <p className="muted">
+            Any controller that can use GitHub (Claude in a cloud session, ChatGPT, a script or you) can queue work without
+            reaching this VM: open an issue labelled <code>{data.label}</code> in{" "}
+            <a href={data.url} target="_blank" rel="noreferrer">{data.repo}</a>. Progress and pull request links come back as
+            comments, and the issue closes when the task is done.
+            {data.last.error && <span className="error"> Last check failed: {data.last.error}</span>}
+          </p>
+          <pre className="log">{`Title: Add a DNS record module for status-page
+
+Body:
+repo: tofu-modules            (or owner/name, or new:my-project)
+depends-on: #12               (other issues in ${data.repo})
+complexity: small             (trivial, small, medium, large, hard)
+reason: copies the existing record modules
+attach: specs/dns.md          (a file in ${data.repo})
+
+What to change, acceptance criteria and how to test it.`}</pre>
+        </>
+      ) : (
+        <p className="muted">
+          Turn on <b>Take tasks from GitHub issues</b> in Settings → GitHub so controllers that can't reach this VM (such as Claude
+          cloud sessions) can queue work through issues instead.
+        </p>
+      )}
+    </section>
   );
 }

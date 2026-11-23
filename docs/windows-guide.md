@@ -94,6 +94,21 @@ Your token can create repositories when it is a *classic* token with the `repo` 
 token needs **All repositories** plus *Administration: Read and write* (and *Contents*, *Pull requests*,
 *Workflows: Read and write*).
 
+### Planning through GitHub issues (no tunnel needed)
+
+Claude in a claude.ai cloud session can't reach a trycloudflare.com or workers.dev address, because those
+sessions only reach allowed sites. GitHub is always allowed, so the VM can also take work from GitHub issues:
+
+1. **Settings → GitHub**, tick **Take tasks from GitHub issues**. Keep the control repository name
+   (`devenv-control`) or type another. It is created for you as a private repository.
+2. **Save settings**. No Apply is needed. Within 30 seconds the repository and the `devenv-task` label
+   exist; the *Check now* link shows the result.
+3. Give Claude (Baz) access to that repository, and tell it to plan work there. It opens one issue per
+   task (the format is on the **Controllers** page), and the VM comments with progress and the pull
+   request link and closes each issue when it is done.
+
+Only issues from you and your collaborators are queued. Closing an issue cancels its task.
+
 ### Which model runs each task
 
 The model you choose for Claude and Codex agents in Settings is the default. When Claude (Baz) or ChatGPT

@@ -37,6 +37,26 @@ improvements; you turn them into work for a pool of coding agents through the `d
 5. If people attached files, upload them to the tasks that need them with `upload_file`.
 6. Report back: the task ids, what can start now, and what is waiting on what.
 
+## No connection to the VM? Plan through GitHub issues
+If you cannot reach the `devenv` tools (for example from a sandbox that blocks the tunnel address) but
+can use GitHub, open one issue per task in the environment's control repository (Settings → GitHub →
+GitHub inbox; `devenv-control` by default) with the label `devenv-task`. The issue title is the task
+title; the body is the description plus any of these lines:
+
+```
+repo: my-app | owner/name | new:my-project
+depends-on: #12, #15        (other issues in the control repository)
+complexity: trivial | small | medium | large | hard
+reason: one sentence on the rating
+priority: 5
+provider: any | claude | codex
+attach: specs/api.yaml      (a file you committed to the control repository)
+```
+
+Open dependencies first so you can refer to their issue numbers. The environment comments on each issue
+with its task id, progress and pull request link, and closes it when the task is done; read the
+comments to follow up. Closing an issue cancels its task.
+
 ## Definition of done (enforced by the queue)
 A task is done only when its change is committed, pushed, merged to `main` through a pull request
 whose checks pass, and deployed if the repo has a deploy workflow. Do not mark tasks done yourself.

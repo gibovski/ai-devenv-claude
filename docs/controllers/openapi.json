@@ -242,6 +242,24 @@
       "title": "Git User Name",
       "type": "string"
      },
+     "inbox_enabled": {
+      "default": false,
+      "title": "Inbox Enabled",
+      "type": "boolean"
+     },
+     "inbox_label": {
+      "default": "devenv-task",
+      "maxLength": 50,
+      "minLength": 1,
+      "title": "Inbox Label",
+      "type": "string"
+     },
+     "inbox_repo": {
+      "default": "devenv-control",
+      "pattern": "^$|^([A-Za-z0-9._-]+/)?[A-Za-z0-9._-]+$",
+      "title": "Inbox Repo",
+      "type": "string"
+     },
      "new_repo_suffix": {
       "default": "",
       "maxLength": 40,
@@ -1160,6 +1178,45 @@
     "summary": "Health",
     "tags": [
      "health"
+    ]
+   }
+  },
+  "/api/inbox": {
+   "get": {
+    "description": "The GitHub control repository: where controllers open issues, and how the last sync went.",
+    "operationId": "inbox_status_api_inbox_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Inbox Status",
+    "tags": [
+     "repos"
+    ]
+   }
+  },
+  "/api/inbox/sync": {
+   "post": {
+    "operationId": "inbox_sync_api_inbox_sync_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Inbox Sync",
+    "tags": [
+     "repos"
     ]
    }
   },

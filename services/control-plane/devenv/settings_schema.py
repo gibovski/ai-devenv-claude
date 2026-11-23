@@ -32,6 +32,11 @@ class GitHubSettings(BaseModel):
     allow_create_repos: bool = True
     new_repo_suffix: str = Field("", pattern=r"^[A-Za-z0-9._-]*$", max_length=40)
     new_repos_private: bool = True
+    # GitHub as the controller channel: issues labelled `inbox_label` in this repository become tasks, and
+    # their progress is posted back as comments. Works without a tunnel (the VM only calls GitHub).
+    inbox_enabled: bool = False
+    inbox_repo: str = Field("devenv-control", pattern=r"^$|^([A-Za-z0-9._-]+/)?[A-Za-z0-9._-]+$")
+    inbox_label: str = Field("devenv-task", min_length=1, max_length=50)
 
 
 class CloudflareSettings(BaseModel):
