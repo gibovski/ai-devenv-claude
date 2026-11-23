@@ -1,6 +1,7 @@
 # Agent worker images. Targets: base, claude, codex.
 #   docker build --target claude -t worker-claude workers/
 FROM ubuntu:24.04 AS base
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG DEBIAN_FRONTEND=noninteractive
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
