@@ -72,3 +72,12 @@ def test_heartbeat_reports_config_version(worker, app, cfg):
     cfg.mcp_file.write_text(GOOD)
     app.state.mcp_watcher.check()
     assert worker("POST", "/api/workers/w1/heartbeat", json={"state": "idle"}).json()["config_version"] == 1
+
+
+def test_register_reports_current_config_version(worker, app, cfg):
+    # A worker starting after a config change must not see it as a new change, or it restarts forever.
+    cfg.mcp_file.write_text(GOOD)
+    app.state.mcp_watcher.check()
+    reg = worker("POST", "/api/workers/register", json={"id": "w2", "provider": "claude", "model": "m"}).json()
+    hb = worker("POST", "/api/workers/w2/heartbeat", json={"state": "idle"}).json()
+    assert reg["config_version"] == hb["config_version"] == 1
