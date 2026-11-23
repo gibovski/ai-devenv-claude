@@ -1,0 +1,16 @@
+[Unit]
+Description=AI Dev Environment Docker stack
+Requires=docker.service
+After=docker.service network-online.target devenv-firstboot.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/devenv
+ExecStart=/opt/devenv/bin/stack-up
+ExecStop=/usr/bin/docker compose --project-name devenv down
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

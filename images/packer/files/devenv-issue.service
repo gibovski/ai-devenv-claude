@@ -1,0 +1,11 @@
+[Unit]
+Description=Show the settings URL on the console and SSH banner
+After=network-online.target devenv-firstboot.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/devenv-issue
+
+[Install]
+WantedBy=multi-user.target

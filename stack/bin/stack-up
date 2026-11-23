@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Starts the Docker Compose stack: base file plus the override written by the apply engine.
+set -euo pipefail
+cd /opt/devenv
+[ -f compose.yaml ] || { echo "no compose.yaml yet"; exit 0; }
+args=(--project-name devenv -f compose.yaml)
+[ -f /var/lib/devenv/compose.override.yaml ] && args+=(-f /var/lib/devenv/compose.override.yaml)
+exec docker compose "${args[@]}" up -d --remove-orphans

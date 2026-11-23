@@ -15,3 +15,4 @@ output-*/
 data/
 .pytest_cache/
 .ruff_cache/
+images/packer/images-cache/*.tar

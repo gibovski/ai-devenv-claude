@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Runs once on the first boot of a new VM: per-machine secrets and the one-time admin password.
+set -euo pipefail
+STATE=/var/lib/devenv
+install -d -m 0700 "$STATE"
+[ -f "$STATE/firstboot.done" ] && exit 0
+
+# Fernet key used by the control plane to encrypt stored credentials.
+if [ ! -f "$STATE/secret.key" ]; then
+  python3 -c 'import base64,os;print(base64.urlsafe_b64encode(os.urandom(32)).decode())' > "$STATE/secret.key"
+  chmod 0600 "$STATE/secret.key"
+fi
+
+# One-time admin password for the settings UI, also the initial SSH password for "dev".
+if [ ! -f "$STATE/initial-admin-password" ]; then
+  pw=$(tr -dc 'A-HJ-NP-Za-km-z2-9' < /dev/urandom | head -c 16)
+  printf '%s\n' "$pw" > "$STATE/initial-admin-password"
+  chmod 0600 "$STATE/initial-admin-password"
+  echo "dev:$pw" | chpasswd
+  chage -d 0 dev   # force a new SSH password at first login
+fi
+
+touch "$STATE/firstboot.done"

@@ -1,0 +1,11 @@
+#cloud-config
+# Build-time only: lets Packer log in. The password is removed by 90-cleanup.sh.
+ssh_pwauth: true
+users:
+  - name: dev
+    gecos: Developer
+    groups: [sudo, adm]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: false
+    plain_text_passwd: packer-build
