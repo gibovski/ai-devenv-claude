@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from .. import auth
+from .. import auth, stable
 from ..state import load_settings
 from ..tunnel import quick_tunnel_url
 
@@ -24,7 +24,15 @@ def base_urls(request: Request) -> dict:
         public = quick_tunnel_url()
     else:
         public = f"https://{cf.hostname}" if cf.hostname else ""
-    return {"local": local, "public": public, "tunnel_mode": cf.mode if cf.tunnel_enabled else ""}
+    st = stable.status(request.app.state.db)
+    return {
+        "local": local,
+        # The stable workers.dev address, once deployed, is the one to give controllers.
+        "public": st["url"] or public,
+        "tunnel": public,
+        "tunnel_mode": cf.mode if cf.tunnel_enabled else "",
+        "stable": st,
+    }
 
 
 @router.get("")

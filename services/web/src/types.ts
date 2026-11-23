@@ -1,7 +1,7 @@
 export type Pool = { count: number; model: string };
 export type SettingsT = {
   github: { owner: string; default_repo: string; git_user_name: string; git_user_email: string; auto_merge: boolean };
-  cloudflare: { mode: "quick" | "named"; account_id: string; zone: string; hostname: string; tunnel_enabled: boolean; manage_with_terraform: boolean; access_emails: string[] };
+  cloudflare: { mode: "quick" | "named"; account_id: string; zone: string; hostname: string; tunnel_enabled: boolean; manage_with_terraform: boolean; access_emails: string[]; stable_enabled: boolean; stable_name: string };
   agents: { claude: Pool; codex: Pool; openhands_enabled: boolean; max_attempts: number };
 };
 export type SecretStatus = Record<string, { label: string; set: boolean; updated_at?: string }>;

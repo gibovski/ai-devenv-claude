@@ -4,7 +4,8 @@
 # definition of done says "done" (PR merged into main).
 # Env: DEVENV_URL, DEVENV_ADMIN_PASSWORD, E2E_REPO (owner/name), E2E_GITHUB_TOKEN, and E2E_CLAUDE_CODE_OAUTH_TOKEN
 #      (Claude subscription, from `claude setup-token`) or E2E_ANTHROPIC_API_KEY,
-#      optional E2E_MODEL (default claude-haiku-5-5), E2E_TIMEOUT seconds (default 2400).
+#      optional E2E_MODEL (default claude-haiku-5-5), E2E_TIMEOUT seconds (default 2400),
+#      optional E2E_CLOUDFLARE_API_TOKEN + E2E_CF_ACCOUNT_ID to also test the fixed workers.dev address.
 set -euo pipefail
 : "${DEVENV_URL:?}" "${DEVENV_ADMIN_PASSWORD:?}" "${E2E_REPO:?}" "${E2E_GITHUB_TOKEN:?}"
 [ -n "${E2E_CLAUDE_CODE_OAUTH_TOKEN:-}${E2E_ANTHROPIC_API_KEY:-}" ] || { echo "set E2E_CLAUDE_CODE_OAUTH_TOKEN or E2E_ANTHROPIC_API_KEY"; exit 1; }
@@ -56,6 +57,26 @@ for _ in $(seq 1 36); do
 done
 if [ -z "$public" ] || ! curl -fsS -m 10 "$public/api/health"; then echo "quick tunnel did not come up"; exit 1; fi
 echo " via $public"
+
+if [ -n "${E2E_CLOUDFLARE_API_TOKEN:-}" ] && [ -n "${E2E_CF_ACCOUNT_ID:-}" ]; then
+  echo "== fixed workers.dev address"
+  api PUT /secrets -d "$(jq -n --arg t "$E2E_CLOUDFLARE_API_TOKEN" '{values:{cloudflare_api_token:$t}}')" >/dev/null
+  api GET /settings | jq --arg a "$E2E_CF_ACCOUNT_ID" --arg n devenv-e2e \
+    '.settings | .cloudflare.stable_enabled=true | .cloudflare.account_id=$a | .cloudflare.stable_name=$n' > "$jar.settings"
+  api PUT /settings --data-binary @"$jar.settings" >/dev/null
+  rm -f "$jar.settings"
+  stable=""
+  for _ in $(seq 1 30); do
+    st=$(api GET /controllers | jq -c '.urls.stable')
+    stable=$(jq -r '.url // ""' <<<"$st")
+    [ -n "$stable" ] && curl -fsS -m 10 "$stable/api/health" >/dev/null 2>&1 && break
+    sleep 10
+  done
+  if [ -z "$stable" ] || ! curl -fsS -m 10 "$stable/api/health"; then echo "workers.dev address did not work: $st"; exit 1; fi
+  echo " via $stable"
+else
+  echo "== fixed workers.dev address: skipped (set E2E_CLOUDFLARE_API_TOKEN and E2E_CF_ACCOUNT_ID)"
+fi
 
 echo "== queue task"
 stamp=$(date -u +%Y%m%d-%H%M%S)

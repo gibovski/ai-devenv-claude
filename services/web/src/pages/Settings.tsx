@@ -82,12 +82,16 @@ export default function Settings() {
   const [pending, setPending] = useState<Record<string, string>>({});
   const [cat, setCat] = useState<Catalogue>();
   const [msg, setMsg] = useState("");
+  const [stable, setStable] = useState<{ name: string; url: string; error: string }>();
 
   const load = async () => {
     const r = await api<{ settings: SettingsT; secrets: SecretStatus }>("/api/settings");
     setS(r.settings);
     setSecrets(r.secrets);
     setPending({});
+    api<{ urls: { stable?: { name: string; url: string; error: string } } }>("/api/controllers")
+      .then((c) => setStable(c.urls.stable))
+      .catch(() => undefined);
   };
   useEffect(() => {
     load();
@@ -178,11 +182,44 @@ export default function Settings() {
           My own domain on Cloudflare, protected by Cloudflare Access
         </label>
         {s.cloudflare.mode === "quick" ? (
+          <>
           <p className="hint">
             You get a random <code>https://…trycloudflare.com</code> address, shown on the Controllers page after Apply. It changes
             whenever the tunnel restarts, and anyone with the address reaches the login page, so the admin password and controller
             tokens are the only protection. Use your own domain for a fixed address behind Cloudflare Access.
           </p>
+          <label className="inline">
+            <input type="checkbox" checked={s.cloudflare.stable_enabled} onChange={(e) => set((d) => void (d.cloudflare.stable_enabled = e.target.checked))} />
+            Give it a fixed address on workers.dev (free Cloudflare account, no domain needed)
+          </label>
+          {s.cloudflare.stable_enabled && (
+            <>
+              <p className="hint">
+                The VM deploys a small Cloudflare Worker at <code>https://NAME.YOUR-SUBDOMAIN.workers.dev</code> that forwards to the
+                quick tunnel, and updates it whenever the tunnel address changes. Create an API token with the
+                <b> Account › Workers Scripts › Edit</b> permission, and copy your Account ID from the Cloudflare dashboard.
+                {stable?.url && <> Your address: <a href={stable.url}>{stable.url}</a></>}
+                {stable?.error && <span className="error"> {stable.error}</span>}
+              </p>
+              {secret("cloudflare_api_token")}
+              <CheckButton provider="cloudflare" value={pending.cloudflare_api_token} />
+              <div className="grid2">
+                <label>
+                  Account ID
+                  <input value={s.cloudflare.account_id} onChange={(e) => set((d) => void (d.cloudflare.account_id = e.target.value))} />
+                </label>
+                <label>
+                  Worker name (lowercase letters, digits, dashes)
+                  <input
+                    value={s.cloudflare.stable_name}
+                    placeholder={stable?.name ?? "devenv-xxxxxx"}
+                    onChange={(e) => set((d) => void (d.cloudflare.stable_name = e.target.value.toLowerCase()))}
+                  />
+                </label>
+              </div>
+            </>
+          )}
+          </>
         ) : (
           <>
             {secret("cloudflare_api_token")}

@@ -6,7 +6,7 @@ type Row = { name: string; created_at: string; last_used_at: string | null; revo
 type Created = { name: string; token: string; mcp_url: string; mcp_url_with_token: string; openapi_url: string };
 
 export default function Controllers() {
-  const { data, reload } = usePoll<{ controllers: Row[]; urls: { local: string; public: string; tunnel_mode?: string } }>("/api/controllers", 0);
+  const { data, reload } = usePoll<{ controllers: Row[]; urls: { local: string; public: string; tunnel_mode?: string; stable?: { url: string } } }>("/api/controllers", 0);
   const [name, setName] = useState("claude");
   const [created, setCreated] = useState<Created>();
   const [msg, setMsg] = useState("");
@@ -30,7 +30,8 @@ export default function Controllers() {
       <p className="muted">
         A controller (Claude or ChatGPT) turns your ideas into queued tasks through the MCP server or the REST API. Each controller gets its own token.
         {!data?.urls.public && " Turn on the tunnel in Settings (no domain needed) so cloud-hosted controllers can reach this VM."}
-        {data?.urls.tunnel_mode === "quick" && data?.urls.public && " This quick-tunnel address changes when the tunnel restarts; update your controllers if it does."}
+        {data?.urls.stable?.url && " This workers.dev address stays the same when the tunnel restarts."}
+        {data?.urls.tunnel_mode === "quick" && data?.urls.public && !data?.urls.stable?.url && " This quick-tunnel address changes when the tunnel restarts; update your controllers if it does."}
       </p>
       <section className="card">
         <h2>Connection details</h2>
