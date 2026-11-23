@@ -164,7 +164,7 @@ deploy workflow, that workflow succeeded on the merge commit.
 
 ## 6. Reach it from anywhere
 
-Turn on the tunnel in Settings (Remote access) and press Apply. With **Quick tunnel** you need no
+In Settings (Remote access) choose **Quick tunnel** or **My own domain** instead of *Off*, **Save settings**, then Apply. Apply always uses the saved settings; the Settings page warns you about unsaved changes. With **Quick tunnel** you need no
 Cloudflare account or domain: the Controllers page shows a random `https://…trycloudflare.com` address that
 changes when the tunnel restarts. For an address that never changes, tick **Give it a fixed address on
 workers.dev**: with a free Cloudflare account it becomes `https://<worker-name>.<your-subdomain>.workers.dev`

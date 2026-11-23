@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import type { Catalogue, Check, Model, SecretStatus, SettingsT } from "../types";
+import { getDraft, setDraft } from "../settingsDraft";
 
 const USAGE_BADGE: Record<string, string> = { "very-high": "●●●●", high: "●●●○", medium: "●●○○", low: "●○○○" };
 
@@ -83,20 +84,35 @@ export default function Settings() {
   const [cat, setCat] = useState<Catalogue>();
   const [msg, setMsg] = useState("");
   const [stable, setStable] = useState<{ name: string; url: string; error: string }>();
+  const [saved, setSaved] = useState<SettingsT>();
+  const navigate = useNavigate();
 
-  const load = async () => {
+  const load = async (keepDraft = false) => {
     const r = await api<{ settings: SettingsT; secrets: SecretStatus }>("/api/settings");
-    setS(r.settings);
+    setSaved(r.settings);
+    const d = keepDraft ? getDraft() : null;
+    setS(d ? d.settings : r.settings);
     setSecrets(r.secrets);
-    setPending({});
+    setPending(d ? d.pending : {});
+    if (d) setMsg("Your unsaved changes are restored. Save them before you apply.");
     api<{ urls: { stable?: { name: string; url: string; error: string } } }>("/api/controllers")
       .then((c) => setStable(c.urls.stable))
       .catch(() => undefined);
   };
   useEffect(() => {
-    load();
+    load(true);
     api<Catalogue>("/api/models").then(setCat);
   }, []);
+  const dirty =
+    !!s && !!saved && (JSON.stringify(s) !== JSON.stringify(saved) || Object.values(pending).some((v) => v !== ""));
+  useEffect(() => {
+    if (!s || !saved) return; // still loading: keep any draft until load() has restored it
+    setDraft(dirty ? { settings: s, pending } : null);
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty, s, saved, pending]);
   if (!s || !cat) return <p>Loading…</p>;
 
   const set = (fn: (d: SettingsT) => void) => {
@@ -108,13 +124,15 @@ export default function Settings() {
     <SecretField name={name} status={secrets[name]} value={pending[name] ?? ""} onChange={(v) => setPending({ ...pending, [name]: v })} />
   );
 
-  const save = async () => {
+  const save = async (thenApply = false) => {
     try {
       await api("/api/settings", { method: "PUT", json: s });
       const changed = Object.fromEntries(Object.entries(pending).filter(([, v]) => v !== undefined));
       if (Object.keys(changed).length) await api("/api/secrets", { method: "PUT", json: { values: changed } });
+      setDraft(null);
       await load();
       setMsg("Saved. Open Apply to deploy the change.");
+      if (thenApply) navigate("/apply");
     } catch (e) {
       setMsg((e as Error).message);
     }
@@ -225,19 +243,30 @@ export default function Settings() {
       </Section>
 
       <Section title="Remote access (Cloudflare Tunnel)">
+        <p className="hint">A tunnel lets remote controllers (Claude, ChatGPT) and you reach this environment from anywhere.</p>
         <label className="inline">
-          <input type="checkbox" checked={s.cloudflare.tunnel_enabled} onChange={(e) => set((d) => void (d.cloudflare.tunnel_enabled = e.target.checked))} />
-          Run a tunnel so remote controllers (Claude, ChatGPT) and you can reach this environment from anywhere
+          <input type="radio" name="cfmode" checked={!s.cloudflare.tunnel_enabled} onChange={() => set((d) => void (d.cloudflare.tunnel_enabled = false))} />
+          Off: reachable only on your own network
         </label>
         <label className="inline">
-          <input type="radio" name="cfmode" checked={s.cloudflare.mode === "quick"} onChange={() => set((d) => void (d.cloudflare.mode = "quick"))} />
+          <input
+            type="radio"
+            name="cfmode"
+            checked={s.cloudflare.tunnel_enabled && s.cloudflare.mode === "quick"}
+            onChange={() => set((d) => void ((d.cloudflare.tunnel_enabled = true), (d.cloudflare.mode = "quick")))}
+          />
           Quick tunnel: no Cloudflare account or domain needed
         </label>
         <label className="inline">
-          <input type="radio" name="cfmode" checked={s.cloudflare.mode === "named"} onChange={() => set((d) => void (d.cloudflare.mode = "named"))} />
+          <input
+            type="radio"
+            name="cfmode"
+            checked={s.cloudflare.tunnel_enabled && s.cloudflare.mode === "named"}
+            onChange={() => set((d) => void ((d.cloudflare.tunnel_enabled = true), (d.cloudflare.mode = "named")))}
+          />
           My own domain on Cloudflare, protected by Cloudflare Access
         </label>
-        {s.cloudflare.mode === "quick" ? (
+        {!s.cloudflare.tunnel_enabled ? null : s.cloudflare.mode === "quick" ? (
           <>
           <p className="hint">
             You get a random <code>https://…trycloudflare.com</code> address, shown on the Controllers page after Apply. It changes
@@ -356,9 +385,14 @@ export default function Settings() {
         )}
       </Section>
 
-      <div className="actions">
-        <button onClick={save}>Save settings</button>
-        <Link to="/apply">Review and apply →</Link>
+      <div className="actions sticky-actions">
+        <button onClick={() => save()} disabled={!dirty}>
+          Save settings
+        </button>
+        <button className="secondary" onClick={() => save(true)} disabled={!dirty}>
+          Save and review Apply
+        </button>
+        {dirty ? <span className="warn">Unsaved changes. Apply uses the saved settings.</span> : <Link to="/apply">Review and apply →</Link>}
         {msg && <span>{msg}</span>}
       </div>
     </div>

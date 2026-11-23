@@ -31,7 +31,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
 .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
 .muted { color: var(--muted); } .small { font-size: 12px; margin: 4px 0 0; }
-.ok { color: var(--ok); } .error { color: var(--err); }
+.ok { color: var(--ok); } .error { color: var(--err); } .warn { color: var(--warn); }
+.sticky-actions { position: sticky; bottom: 0; background: var(--bg); padding: 12px 0; border-top: 1px solid var(--line); align-items: center; }
 .check { display: flex; gap: 10px; align-items: center; font-size: 13px; }
 .actions { display: flex; gap: 16px; align-items: center; }
 pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px; overflow: auto; font-size: 12px; max-height: 420px; white-space: pre-wrap; }

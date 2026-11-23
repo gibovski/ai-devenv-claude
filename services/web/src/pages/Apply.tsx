@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { usePoll } from "../usePoll";
+import { Link } from "react-router-dom";
+import { getDraft } from "../settingsDraft";
 
 type Run = { id: number; status: string; started_at: string; finished_at?: string; log: string; next_offset: number };
 
@@ -11,6 +13,7 @@ export default function Apply() {
   const [log, setLog] = useState("");
   const [status, setStatus] = useState("");
   const offset = useRef(0);
+  const unsaved = getDraft() !== null;
 
   useEffect(() => {
     if (!runId) return;
@@ -38,11 +41,17 @@ export default function Apply() {
   return (
     <div className="stack">
       <h1>Apply settings</h1>
+      {unsaved && (
+        <p className="warn card">
+          Settings has unsaved changes. Apply uses the <b>saved</b> settings, so those changes won't be applied.{" "}
+          <Link to="/settings">Go back to Settings and save them</Link> first.
+        </p>
+      )}
       <section className="card">
         <h2>Pending changes</h2>
         <pre className="diff">{preview.data?.diff ?? "Loading…"}</pre>
         <button onClick={apply} disabled={status === "running"}>
-          {status === "running" ? "Applying…" : "Apply now"}
+          {status === "running" ? "Applying…" : unsaved ? "Apply the saved settings anyway" : "Apply now"}
         </button>
       </section>
       {runId && (
