@@ -53,6 +53,7 @@ def check(provider: str, request: Request):
         "github": "github_token",
         "openai": "openai_api_key",
         "anthropic": "anthropic_api_key",
+        "claude": "claude_code_oauth_token",
         "cloudflare": "cloudflare_api_token",
         "tunnel": "cloudflare_tunnel_token",
     }.get(provider)
@@ -67,6 +68,8 @@ def check(provider: str, request: Request):
         return checks.check_openai(value)
     if provider == "anthropic":
         return checks.check_anthropic(value)
+    if provider == "claude":
+        return checks.check_claude_oauth_token(value)
     if provider == "cloudflare":
         return checks.check_cloudflare(value, s.cloudflare.account_id)
     return checks.check_tunnel_token(value)

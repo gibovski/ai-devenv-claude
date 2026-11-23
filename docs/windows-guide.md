@@ -61,7 +61,7 @@ On the **Settings** page:
 | Section | What to enter |
 |---|---|
 | GitHub | A personal access token with `repo` and `workflow` scopes, the owner and a default repository. Keep *auto merge* on so the definition of done (merged to main) can be reached without you. |
-| Anthropic | An API key, the number of Claude agents and the model (Opus 5.5 is the default; Haiku 5.5 is cheapest). |
+| Claude | Your Claude Pro/Max subscription token (run `claude setup-token` on a computer with Claude Code and paste the result), or an Anthropic API key. Then the number of Claude agents and the model (Opus 5.5 is the default). All agents share your subscription's usage limits. |
 | OpenAI | An API key, the number of Codex agents and the model. |
 | Cloudflare | API token, account id, zone, hostname and the emails allowed through Cloudflare Access. See [tunnels.md](tunnels.md). |
 

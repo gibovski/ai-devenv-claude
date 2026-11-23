@@ -21,6 +21,10 @@ PROVIDER = os.environ.get("WORKER_PROVIDER", "claude")
 MODEL = os.environ.get("MODEL", "")
 WORKSPACE = Path(os.environ.get("WORKSPACE", "/workspace"))
 AGENT_CONFIG = Path(os.environ.get("AGENT_CONFIG_DIR", "/etc/devenv-agent"))
+# An empty credential variable would shadow the other auth method in Claude Code, so drop empty ones.
+for _name in ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "OPENAI_API_KEY"):
+    if not os.environ.get(_name):
+        os.environ.pop(_name, None)
 TASK_TIMEOUT = int(os.environ.get("TASK_TIMEOUT_SECONDS", str(3 * 3600)))
 WORKER_ID = f"{PROVIDER}-{socket.gethostname()}"
 HERE = Path(__file__).parent

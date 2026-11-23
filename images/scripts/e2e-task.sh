@@ -2,10 +2,12 @@
 # End-to-end check run against a booted VM (see smoke-test.sh E2E_HOOK): log in, configure
 # credentials and one Claude agent, apply, queue a task against a sandbox repo and wait until the
 # definition of done says "done" (PR merged into main).
-# Env: DEVENV_URL, DEVENV_ADMIN_PASSWORD, E2E_REPO (owner/name), E2E_GITHUB_TOKEN, E2E_ANTHROPIC_API_KEY,
+# Env: DEVENV_URL, DEVENV_ADMIN_PASSWORD, E2E_REPO (owner/name), E2E_GITHUB_TOKEN, and E2E_CLAUDE_CODE_OAUTH_TOKEN
+#      (Claude subscription, from `claude setup-token`) or E2E_ANTHROPIC_API_KEY,
 #      optional E2E_MODEL (default claude-haiku-5-5), E2E_TIMEOUT seconds (default 2400).
 set -euo pipefail
-: "${DEVENV_URL:?}" "${DEVENV_ADMIN_PASSWORD:?}" "${E2E_REPO:?}" "${E2E_GITHUB_TOKEN:?}" "${E2E_ANTHROPIC_API_KEY:?}"
+: "${DEVENV_URL:?}" "${DEVENV_ADMIN_PASSWORD:?}" "${E2E_REPO:?}" "${E2E_GITHUB_TOKEN:?}"
+[ -n "${E2E_CLAUDE_CODE_OAUTH_TOKEN:-}${E2E_ANTHROPIC_API_KEY:-}" ] || { echo "set E2E_CLAUDE_CODE_OAUTH_TOKEN or E2E_ANTHROPIC_API_KEY"; exit 1; }
 model=${E2E_MODEL:-claude-haiku-5-5}
 timeout=${E2E_TIMEOUT:-2400}
 jar=$(mktemp)
@@ -19,14 +21,15 @@ api POST /auth/password -d "$(jq -n --arg c "$DEVENV_ADMIN_PASSWORD" --arg n "$n
 
 echo "== settings"
 owner=${E2E_REPO%%/*} name=${E2E_REPO#*/}
-api PUT /secrets -d "$(jq -n --arg g "$E2E_GITHUB_TOKEN" --arg a "$E2E_ANTHROPIC_API_KEY" \
-  '{values:{github_token:$g,anthropic_api_key:$a}}')" >/dev/null
+api PUT /secrets -d "$(jq -n --arg g "$E2E_GITHUB_TOKEN" --arg a "${E2E_ANTHROPIC_API_KEY:-}" \
+  --arg o "${E2E_CLAUDE_CODE_OAUTH_TOKEN:-}" '{values:{github_token:$g,anthropic_api_key:$a,claude_code_oauth_token:$o}}')" >/dev/null
 api GET /settings | jq --arg o "$owner" --arg n "$name" --arg m "$model" \
   '.settings | .github.owner=$o | .github.default_repo=$n | .github.auto_merge=true
    | .agents.claude.count=1 | .agents.claude.model=$m | .agents.codex.count=0' > "$jar.settings"
 api PUT /settings --data-binary @"$jar.settings" >/dev/null
 rm -f "$jar.settings"
 api POST /settings/check/github | jq -c .
+api POST /settings/check/claude | jq -c .
 api POST /settings/check/anthropic | jq -c .
 
 echo "== apply"

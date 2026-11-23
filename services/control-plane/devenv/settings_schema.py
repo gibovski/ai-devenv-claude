@@ -8,7 +8,8 @@ from .catalogue.loader import default_model
 SECRET_FIELDS = {
     "github_token": "GitHub personal access token (repo, workflow scopes)",
     "openai_api_key": "OpenAI API key",
-    "anthropic_api_key": "Anthropic API key",
+    "claude_code_oauth_token": "Claude subscription token (Pro/Max, from `claude setup-token`)",
+    "anthropic_api_key": "Anthropic API key (optional, pay-as-you-go alternative)",
     "cloudflare_api_token": "Cloudflare API token",
     "cloudflare_tunnel_token": "Cloudflare Tunnel token (from Terraform or the dashboard)",
 }
