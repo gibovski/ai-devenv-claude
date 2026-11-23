@@ -35,3 +35,38 @@ mv /etc/issue.new /etc/issue
 cp /etc/issue.net /etc/motd
 # Refresh the getty so the console shows the new text.
 command -v agetty >/dev/null && pkill -HUP -x agetty 2>/dev/null || true
+
+# Hyper-V: publish the URL and the one-time password to the host through KVP (guest pool 1),
+# so New-DevEnvVM.ps1 can print them. Records are a 512-byte key + 2048-byte value, NUL padded.
+if [ "$(systemd-detect-virt 2>/dev/null || true)" = microsoft ]; then
+  mkdir -p /var/lib/hyperv
+  first_ip=$(printf '%s\n' "$ips" | head -n1)
+  DEVENV_URL="http://${first_ip:-devenv.local}/" DEVENV_PW="$pw" DEVENV_VER="$ver" python3 - <<'PY'
+import os
+path = "/var/lib/hyperv/.kvp_pool_1"
+K, V = 512, 2048
+ours = {"DevEnvUrl": os.environ["DEVENV_URL"], "DevEnvVersion": os.environ["DEVENV_VER"],
+        "DevEnvAdminPassword": os.environ["DEVENV_PW"]}
+records = {}
+try:
+    data = open(path, "rb").read()
+    for i in range(0, len(data) - K - V + 1, K + V):
+        k = data[i:i + K].split(b"\0", 1)[0].decode(errors="replace")
+        v = data[i + K:i + K + V].split(b"\0", 1)[0].decode(errors="replace")
+        if k:
+            records[k] = v
+except FileNotFoundError:
+    pass
+for k, v in ours.items():
+    if v:
+        records[k] = v
+    else:
+        records.pop(k, None)
+out = b"".join(k.encode()[:K - 1].ljust(K, b"\0") + v.encode()[:V - 1].ljust(V, b"\0") for k, v in records.items())
+tmp = path + ".tmp"
+with open(tmp, "wb") as f:
+    f.write(out)
+os.chmod(tmp, 0o600)
+os.replace(tmp, path)
+PY
+fi
