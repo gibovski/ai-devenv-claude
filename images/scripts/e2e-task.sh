@@ -42,6 +42,21 @@ done
 api GET "/apply/runs/$run" | jq -r '.status, (.log // "")' | tail -40
 [ "$st" = succeeded ] || { echo "apply ended with $st"; exit 1; }
 
+echo "== quick tunnel (no Cloudflare account)"
+api GET /settings | jq '.settings | .cloudflare.tunnel_enabled=true | .cloudflare.mode="quick"' > "$jar.settings"
+api PUT /settings --data-binary @"$jar.settings" >/dev/null
+rm -f "$jar.settings"
+run=$(api POST /apply | jq -r .run_id)
+for _ in $(seq 1 60); do [ "$(api GET "/apply/runs/$run" | jq -r .status)" = running ] || break; sleep 5; done
+public=""
+for _ in $(seq 1 36); do
+  public=$(api GET /controllers | jq -r '.urls.public // ""')
+  [ -n "$public" ] && curl -fsS -m 10 "$public/api/health" >/dev/null 2>&1 && break
+  sleep 5
+done
+if [ -z "$public" ] || ! curl -fsS -m 10 "$public/api/health"; then echo "quick tunnel did not come up"; exit 1; fi
+echo " via $public"
+
 echo "== queue task"
 stamp=$(date -u +%Y%m%d-%H%M%S)
 task=$(api POST /tasks -d "$(jq -n --arg r "$E2E_REPO" --arg s "$stamp" '{

@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from .. import auth
 from ..state import load_settings
+from ..tunnel import quick_tunnel_url
 
 router = APIRouter(prefix="/api/controllers", tags=["controllers"], dependencies=[Depends(auth.admin_only)])
 
@@ -16,8 +17,14 @@ class ControllerIn(BaseModel):
 def base_urls(request: Request) -> dict:
     s = load_settings(request.app.state.db)
     local = str(request.base_url).rstrip("/")
-    public = f"https://{s.cloudflare.hostname}" if s.cloudflare.hostname else ""
-    return {"local": local, "public": public}
+    cf = s.cloudflare
+    if not cf.tunnel_enabled:
+        public = ""
+    elif cf.mode == "quick":
+        public = quick_tunnel_url()
+    else:
+        public = f"https://{cf.hostname}" if cf.hostname else ""
+    return {"local": local, "public": public, "tunnel_mode": cf.mode if cf.tunnel_enabled else ""}
 
 
 @router.get("")

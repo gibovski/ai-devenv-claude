@@ -88,8 +88,10 @@ deploy workflow, that workflow succeeded on the merge commit.
 
 ## 6. Reach it from anywhere
 
-Turn on the tunnel in Settings (Cloudflare) and press Apply. The UI is then at `https://<hostname>/`
-behind Cloudflare Access, and controllers use `https://<hostname>/mcp/t/<token>`.
+Turn on the tunnel in Settings (Remote access) and press Apply. With **Quick tunnel** you need no
+Cloudflare account or domain: the Controllers page shows a random `https://…trycloudflare.com` address that
+changes when the tunnel restarts. With your own domain the UI is at `https://<hostname>/` behind Cloudflare
+Access. Controllers use `<address>/mcp/t/<token>`.
 
 ## Updating
 

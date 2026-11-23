@@ -31,6 +31,7 @@ def test_apply_runs_terraform_and_enables_tunnel(admin, cfg, app):
         zone="example.com",
         hostname="devenv.example.com",
         tunnel_enabled=True,
+        mode="named",
         access_emails=["me@example.com"],
     )
     admin.put("/api/settings", json=s)
@@ -49,7 +50,9 @@ def test_terraform_failure_fails_apply(admin, cfg):
     (tf / "tf.sh").chmod(0o755)
     admin.put("/api/secrets", json={"values": {"cloudflare_api_token": "cf-token"}})
     s = admin.get("/api/settings").json()["settings"]
-    s["cloudflare"].update(account_id="acc", zone="example.com", hostname="h.example.com", tunnel_enabled=True)
+    s["cloudflare"].update(
+        account_id="acc", zone="example.com", hostname="h.example.com", tunnel_enabled=True, mode="named"
+    )
     admin.put("/api/settings", json=s)
     run = wait(admin, admin.post("/api/apply").json()["run_id"])
     assert run["status"] == "failed" and "boom" in run["log"]
@@ -59,3 +62,27 @@ def test_no_tunnel_without_settings(admin, cfg):
     run = wait(admin, admin.post("/api/apply").json()["run_id"])
     assert run["status"] == "succeeded"
     assert "COMPOSE_PROFILES=''" in cfg.env_path.read_text()
+
+
+def test_quick_tunnel_needs_no_account(admin, cfg, app, monkeypatch):
+    from devenv import apply, tunnel
+    from devenv.state import load_settings
+
+    s = admin.get("/api/settings").json()["settings"]
+    assert s["cloudflare"]["mode"] == "quick"
+    s["cloudflare"]["tunnel_enabled"] = True
+    admin.put("/api/settings", json=s)
+    _, env = apply.render(load_settings(app.state.db), app.state.secrets, "w")
+    assert "quicktunnel" in env["COMPOSE_PROFILES"].split(",")
+    assert not apply.tunnel_wanted(load_settings(app.state.db), app.state.secrets)
+
+    monkeypatch.setattr(tunnel, "_cache", {"url": "", "at": 0.0})
+
+    class R:
+        def json(self):
+            return {"hostname": "brave-words-here.trycloudflare.com"}
+
+    monkeypatch.setattr(tunnel.httpx, "get", lambda *a, **k: R())
+    urls = admin.get("/api/controllers").json()["urls"]
+    assert urls["public"] == "https://brave-words-here.trycloudflare.com"
+    assert urls["tunnel_mode"] == "quick"
