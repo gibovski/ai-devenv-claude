@@ -1,0 +1,66 @@
+name: lint
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  shell:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: |
+          files=$(git ls-files '*.sh')
+          if [ -n "$files" ]; then shellcheck -x $files; else echo "no shell files"; fi
+  docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: hadolint
+        run: |
+          files=$(git ls-files '**/Dockerfile' 'Dockerfile' '**/*.Dockerfile')
+          [ -z "$files" ] && { echo "no Dockerfiles"; exit 0; }
+          docker run --rm -i -v "$PWD:/w" -w /w hadolint/hadolint:v2.12.0 hadolint --failure-threshold warning $files
+  python:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: ruff
+        run: uvx ruff@0.8.4 check . && uvx ruff@0.8.4 format --check .
+  web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: eslint
+        run: |
+          [ -f services/web/package.json ] || { echo "no web app"; exit 0; }
+          cd services/web && npm ci && npm run lint
+  terraform:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - uses: terraform-linters/setup-tflint@v4
+      - name: terraform fmt and tflint
+        run: |
+          terraform fmt -check -recursive infra/terraform
+          for d in $(find infra/terraform -name '*.tf' -exec dirname {} \; | sort -u); do
+            (cd "$d" && tflint --init && tflint)
+          done
+  packer:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-packer@main
+        with:
+          version: "1.11.2"
+      - name: packer fmt
+        run: |
+          [ -n "$(git ls-files 'images/packer/*.pkr.hcl')" ] || { echo "no templates"; exit 0; }
+          packer fmt -check -recursive images/packer

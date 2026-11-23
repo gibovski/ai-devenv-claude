@@ -1,0 +1,12 @@
+- name: task
+  color: 1d76db
+  description: A deliverable task from the plan
+- name: ready
+  color: 0e8a16
+  description: All dependencies are done
+- name: blocked
+  color: b60205
+  description: Waiting on another task
+- name: needs-human
+  color: fbca04
+  description: An agent gave up; a person should look

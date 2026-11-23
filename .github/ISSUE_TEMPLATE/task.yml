@@ -1,0 +1,25 @@
+name: Task
+description: A small, deliverable coding task for an agent
+labels: ["task", "blocked"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What should be built, in one or two paragraphs.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: One line per dependency, e.g. "Blocked by #12".
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of done
+      options:
+        - label: Committed on a branch
+        - label: Pushed
+        - label: PR merged to main
+        - label: Deployed, if relevant

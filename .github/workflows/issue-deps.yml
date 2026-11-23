@@ -1,0 +1,28 @@
+# Keeps the ready/blocked labels in sync with "Blocked by #N" lines in issue bodies.
+# Runs whenever an issue is closed, reopened or edited, and on demand.
+name: issue-deps
+on:
+  issues:
+    types: [closed, reopened, edited, opened]
+  workflow_dispatch:
+permissions:
+  issues: write
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: sync labels from labels.yml
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import subprocess, re
+          text = open(".github/labels.yml").read()
+          for m in re.finditer(r"- name: (\S+)\n\s+color: (\S+)\n\s+description: (.*)", text):
+              subprocess.run(["gh", "label", "create", m[1], "--color", m[2], "--description", m[3], "--force"], check=False)
+          PY
+      - name: recompute ready/blocked
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/sync_issue_deps.py
