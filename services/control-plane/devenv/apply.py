@@ -37,7 +37,10 @@ def render(settings: Settings, secrets: SecretStore, worker_token: str) -> tuple
     profiles = []
     if settings.agents.openhands_enabled:
         profiles.append("openhands")
-    if settings.cloudflare.tunnel_enabled and secrets.get("cloudflare_tunnel_token"):
+    cf = settings.cloudflare
+    if cf.tunnel_enabled and cf.mode == "quick":
+        profiles.append("quicktunnel")
+    elif cf.tunnel_enabled and secrets.get("cloudflare_tunnel_token"):
         profiles.append("tunnel")
     env = {
         "COMPOSE_PROFILES": ",".join(profiles),
@@ -117,6 +120,7 @@ def tunnel_wanted(settings: Settings, secrets: SecretStore) -> bool:
     cf = settings.cloudflare
     return bool(
         cf.tunnel_enabled
+        and cf.mode == "named"
         and cf.manage_with_terraform
         and secrets.get("cloudflare_api_token")
         and cf.account_id

@@ -1,5 +1,7 @@
 """Settings schema. Non-secret settings live in the kv table; credentials live in the secret store."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 from .catalogue.loader import default_model
@@ -24,6 +26,9 @@ class GitHubSettings(BaseModel):
 
 
 class CloudflareSettings(BaseModel):
+    # quick: a free trycloudflare.com address, no account or domain needed (changes when it restarts).
+    # named: your own hostname on a Cloudflare zone, protected by Cloudflare Access.
+    mode: Literal["quick", "named"] = "quick"
     account_id: str = ""
     zone: str = ""
     hostname: str = ""

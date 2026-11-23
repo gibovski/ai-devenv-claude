@@ -98,6 +98,15 @@
       "title": "Manage With Terraform",
       "type": "boolean"
      },
+     "mode": {
+      "default": "quick",
+      "enum": [
+       "quick",
+       "named"
+      ],
+      "title": "Mode",
+      "type": "string"
+     },
      "tunnel_enabled": {
       "default": false,
       "title": "Tunnel Enabled",

@@ -1,5 +1,15 @@
 # Tunnels: letting Claude (Baz) and ChatGPT see the agents
 
+## Option 1: quick tunnel (no account, no domain)
+
+Settings, Remote access: turn on the tunnel, choose **Quick tunnel**, press Apply. The VM runs
+`cloudflared tunnel --url http://caddy:80` and gets a random `https://<words>.trycloudflare.com` address,
+shown on the Controllers page (and as the base of the MCP URL). The address changes whenever the tunnel
+restarts, and there is no Cloudflare Access in front of it: the admin password protects the UI and the
+per-controller tokens protect `/mcp` and the API. Good for trying things out and for friends without a domain.
+
+## Option 2: your own domain (named tunnel with Cloudflare Access)
+
 The VM makes an **outbound** Cloudflare Tunnel connection, so nothing on your network is opened.
 Terraform in [`infra/terraform/cloudflare`](../infra/terraform/cloudflare) creates:
 
