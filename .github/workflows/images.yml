@@ -75,8 +75,9 @@ jobs:
       fail-fast: false
       matrix:
         arch: ${{ fromJSON(needs.prepare.outputs.arches) }}
-    # Native arm64 runners are free on public repos; set the ARM64_RUNNER variable to use them.
-    runs-on: ${{ matrix.arch == 'arm64' && (vars.ARM64_RUNNER || 'ubuntu-24.04') || 'ubuntu-24.04' }}
+    # Native arm64 runners (free on public repos) build the arm64 stack images without emulation.
+    # Set the ARM64_RUNNER variable to override, e.g. to ubuntu-24.04 for a private repo.
+    runs-on: ${{ matrix.arch == 'arm64' && (vars.ARM64_RUNNER || 'ubuntu-24.04-arm') || 'ubuntu-24.04' }}
     timeout-minutes: 360
     env:
       ARCH: ${{ matrix.arch }}
