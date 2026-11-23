@@ -28,5 +28,62 @@ services:
       - /var/lib/devenv:/var/lib/devenv
       - control-plane-data:/data
 
+  # Coding agents. Replica counts come from the settings UI (compose.override.yaml).
+  worker-claude:
+    image: ghcr.io/gibovski/ai-devenv-claude/worker-claude:${DEVENV_IMAGE_TAG:-latest}
+    pull_policy: missing
+    restart: unless-stopped
+    deploy:
+      replicas: 0
+    depends_on:
+      - control-plane
+    environment:
+      CONTROL_PLANE_URL: http://control-plane:8000
+      WORKER_TOKEN: ${WORKER_TOKEN:-}
+      MODEL: ${CLAUDE_MODEL:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GH_TOKEN: ${GITHUB_TOKEN:-}
+    volumes:
+      - /var/lib/devenv/agent-config:/etc/devenv-agent:ro
+
+  worker-codex:
+    image: ghcr.io/gibovski/ai-devenv-claude/worker-codex:${DEVENV_IMAGE_TAG:-latest}
+    pull_policy: missing
+    restart: unless-stopped
+    deploy:
+      replicas: 0
+    depends_on:
+      - control-plane
+    environment:
+      CONTROL_PLANE_URL: http://control-plane:8000
+      WORKER_TOKEN: ${WORKER_TOKEN:-}
+      MODEL: ${CODEX_MODEL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GH_TOKEN: ${GITHUB_TOKEN:-}
+    volumes:
+      - /var/lib/devenv/agent-config:/etc/devenv-agent:ro
+
+  # Optional: OpenHands web agent on port 3000 (enable in Settings > Coding agents).
+  openhands:
+    image: ${OPENHANDS_IMAGE:-docker.openhands.dev/openhands/openhands:1.0}
+    profiles: [openhands]
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      SANDBOX_RUNTIME_CONTAINER_IMAGE: ${OPENHANDS_RUNTIME_IMAGE:-docker.openhands.dev/openhands/runtime:1.0-nikolaik}
+      LLM_MODEL: ${OPENHANDS_LLM_MODEL:-anthropic/claude-sonnet-5-5}
+      LLM_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      LOG_ALL_EVENTS: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - openhands-state:/.openhands
+
 volumes:
   control-plane-data:
+  openhands-state:

@@ -15,7 +15,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: control plane tests
         working-directory: services/control-plane
-        run: uv run --frozen pytest -q
+        run: uv run --frozen pytest -q && uv run --frozen pytest -q ../../workers/agent
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -30,11 +30,10 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - { name: control-plane, context: services/control-plane }
-          - { name: web, context: services/web }
-          - { name: worker-base, context: workers/base }
-          - { name: worker-claude, context: workers/claude }
-          - { name: worker-codex, context: workers/codex }
+          - { name: control-plane, context: services/control-plane, target: "" }
+          - { name: web, context: services/web, target: "" }
+          - { name: worker-claude, context: workers, target: claude }
+          - { name: worker-codex, context: workers, target: codex }
     steps:
       - uses: actions/checkout@v4
       - id: exists
@@ -53,11 +52,9 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.image.context }}
+          target: ${{ matrix.image.target }}
           platforms: ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           push: ${{ github.event_name == 'push' }}
-          build-args: |
-            REGISTRY=ghcr.io/gibovski/ai-devenv-claude
-            TAG=latest
           tags: |
             ghcr.io/gibovski/ai-devenv-claude/${{ matrix.image.name }}:latest
             ghcr.io/gibovski/ai-devenv-claude/${{ matrix.image.name }}:${{ github.sha }}

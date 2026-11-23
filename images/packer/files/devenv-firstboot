@@ -13,7 +13,7 @@ fi
 
 # One-time admin password for the settings UI, also the initial SSH password for "dev".
 if [ ! -f "$STATE/initial-admin-password" ]; then
-  pw=$(tr -dc 'A-HJ-NP-Za-km-z2-9' < /dev/urandom | head -c 16)
+  pw=$(python3 -c 'import secrets;a="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";print("".join(secrets.choice(a) for _ in range(16)))')
   printf '%s\n' "$pw" > "$STATE/initial-admin-password"
   chmod 0600 "$STATE/initial-admin-password"
   echo "dev:$pw" | chpasswd

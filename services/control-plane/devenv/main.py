@@ -1,41 +1,67 @@
 """FastAPI application factory."""
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from . import __version__, auth
-from .apply import ApplyEngine
+from . import __version__, auth, done, queue
+from .apply import ApplyEngine, reconcile_workers
+from .background import Loop
 from .config import Config, load
 from .db import Database
+from .routes import agents as agent_routes
 from .routes import auth as auth_routes
 from .routes import settings as settings_routes
+from .routes import tasks as task_routes
+from .routes import workers as worker_routes
 from .secretstore import SecretStore, load_key
+from .state import load_settings
+
+log = logging.getLogger("devenv")
 
 
-def create_app(cfg: Config | None = None) -> FastAPI:
+def create_app(cfg: Config | None = None, background: bool = True) -> FastAPI:
     cfg = cfg or load()
     db = Database(cfg.db_path)
     secrets = SecretStore(db, load_key(cfg.state_dir))
     auth.bootstrap_admin(db, cfg.state_dir)
+    engine = ApplyEngine(cfg, db, secrets)
+
+    loop = Loop()
+    loop.add("leases", lambda: queue.expire_leases(db), every=15)
+    loop.add("done", lambda: done.check_all(db, secrets.get("github_token"), cfg.github_api), every=30)
+
+    def supervise():
+        s = load_settings(db)
+        note = reconcile_workers(engine, {"claude": s.agents.claude.count, "codex": s.agents.codex.count})
+        if note:
+            log.info(note)
+
+    loop.add("supervisor", supervise, every=60)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        if background:
+            loop.start()
         for hook in app.state.startup:
             hook(app)
         yield
-        for hook in app.state.shutdown:
-            hook(app)
+        loop.stop()
 
-    app = FastAPI(title="AI Dev Environment control plane", version=__version__, lifespan=lifespan)
-    app.state.cfg, app.state.db, app.state.secrets = cfg, db, secrets
-    app.state.apply = ApplyEngine(cfg, db, secrets)
-    app.state.startup, app.state.shutdown = [], []
+    app = FastAPI(
+        title="AI Dev Environment control plane",
+        version=__version__,
+        description="Settings, agents, work queue and controller API for the AI dev environment.",
+        lifespan=lifespan,
+    )
+    app.state.cfg, app.state.db, app.state.secrets, app.state.apply = cfg, db, secrets, engine
+    app.state.loop, app.state.startup = loop, []
 
     @app.get("/api/health", tags=["health"])
     def health():
         return {"ok": True, "version": __version__, "schema": db.migrate()}
 
-    app.include_router(auth_routes.router)
-    app.include_router(settings_routes.router)
+    for r in (auth_routes, settings_routes, worker_routes, agent_routes, task_routes):
+        app.include_router(r.router)
     return app

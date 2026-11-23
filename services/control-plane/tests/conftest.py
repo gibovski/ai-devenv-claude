@@ -23,7 +23,7 @@ def cfg(tmp_path, monkeypatch):
 
 @pytest.fixture
 def app(cfg):
-    return create_app(cfg)
+    return create_app(cfg, background=False)
 
 
 @pytest.fixture
@@ -37,3 +37,21 @@ def admin(client):
     r = client.post("/api/auth/login", json={"username": "admin", "password": "first-boot-pw"})
     assert r.status_code == 200
     return client
+
+
+@pytest.fixture
+def worker_token(app):
+    from devenv.apply import ensure_worker_token
+
+    return ensure_worker_token(app.state.db, app.state.secrets)
+
+
+@pytest.fixture
+def worker(client, worker_token):
+    h = {"Authorization": f"Bearer {worker_token}"}
+
+    def call(method, path, **kw):
+        return client.request(method, path, headers=h, **kw)
+
+    call("POST", "/api/workers/register", json={"id": "w1", "provider": "claude", "model": "claude-opus-5-5"})
+    return call

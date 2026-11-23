@@ -136,6 +136,7 @@ class ApplyEngine:
     def _run(self, run_id: int, override: str, env: dict[str, str]) -> None:
         with self._lock:
             try:
+                (self.cfg.state_dir / "agent-config").mkdir(mode=0o755, exist_ok=True)
                 self.cfg.override_path.write_text(override)
                 fd = os.open(self.cfg.env_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
                 with os.fdopen(fd, "w") as f:
@@ -156,3 +157,38 @@ class ApplyEngine:
             except Exception as e:  # noqa: BLE001 - surface any failure in the run log
                 self._log(run_id, f"ERROR: {e}\n")
                 self._finish(run_id, "failed")
+
+
+def running_workers(cfg: Config) -> dict[str, int]:
+    """Count running worker containers per provider via `docker compose ps`."""
+    import json
+
+    out = subprocess.run(compose_cmd(cfg, "ps", "--format", "json"), capture_output=True, text=True, timeout=60)
+    counts = {"claude": 0, "codex": 0}
+    for line in out.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        items = json.loads(line)
+        for c in items if isinstance(items, list) else [items]:
+            svc = c.get("Service", "")
+            if c.get("State") == "running" and svc.startswith("worker-"):
+                counts[svc.removeprefix("worker-")] = counts.get(svc.removeprefix("worker-"), 0) + 1
+    return counts
+
+
+def reconcile_workers(engine: "ApplyEngine", desired: dict[str, int]) -> str | None:
+    """Supervisor: if the number of running workers differs from settings, scale them back. Returns a note or None."""
+    cfg = engine.cfg
+    if not cfg.docker_enabled or not cfg.override_path.exists() or engine._lock.locked():
+        return None
+    actual = running_workers(cfg)
+    if all(actual.get(p, 0) == n for p, n in desired.items()):
+        return None
+    with engine._lock:
+        subprocess.run(
+            compose_cmd(cfg, "up", "-d", "--no-recreate", "worker-claude", "worker-codex"),
+            capture_output=True,
+            timeout=600,
+        )
+    return f"scaled workers from {actual} to {desired}"

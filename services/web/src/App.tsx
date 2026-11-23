@@ -5,8 +5,15 @@ import Login from "./pages/Login";
 import Settings from "./pages/Settings";
 import Apply from "./pages/Apply";
 import ChangePassword from "./pages/ChangePassword";
+import Dashboard from "./pages/Dashboard";
+import Queue from "./pages/Queue";
+import Graph from "./pages/Graph";
+import TaskDetail from "./pages/TaskDetail";
 
 export const NAV: { to: string; label: string }[] = [
+  { to: "/dashboard", label: "Agents" },
+  { to: "/queue", label: "Queue" },
+  { to: "/graph", label: "Graph" },
   { to: "/settings", label: "Settings" },
   { to: "/apply", label: "Apply" },
 ];
@@ -48,6 +55,10 @@ export default function App() {
       <main>
         <Routes>
           <Route path="/" element={<Navigate to={NAV[0].to} replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/queue" element={<Queue />} />
+          <Route path="/graph" element={<Graph />} />
+          <Route path="/tasks/:id" element={<TaskDetail />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/apply" element={<Apply />} />
           <Route path="/password" element={<ChangePassword onDone={refresh} />} />
