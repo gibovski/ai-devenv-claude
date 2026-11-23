@@ -204,7 +204,7 @@ jobs:
           E2E_HOOK="$PWD/images/scripts/e2e-task.sh" images/scripts/smoke-test.sh "$img" amd64
 
   publish:
-    needs: [prepare, build]
+    needs: [prepare, build, e2e]
     if: needs.prepare.outputs.publish == 'true' && !cancelled()
     runs-on: ubuntu-24.04
     steps:
@@ -212,10 +212,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.prepare.outputs.tag }}
-          OK: ${{ needs.build.result == 'success' }}
+          # A failed end-to-end test keeps the release a draft; a skipped one (e2e off) does not.
+          OK: ${{ needs.build.result == 'success' && needs.e2e.result != 'failure' && needs.e2e.result != 'cancelled' }}
         run: |
           if [ "$OK" != true ]; then
-            echo "::warning::A build failed; release $TAG stays a draft."
+            echo "::warning::A build or the end-to-end test failed; release $TAG stays a draft."
             exit 0
           fi
           gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false --latest

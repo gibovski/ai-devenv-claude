@@ -71,8 +71,11 @@ def register(body: RegisterIn, request: Request):
     for t in db.all("SELECT * FROM tasks WHERE worker_id = ? AND status = 'in_progress'", body.id):
         queue.fail_attempt(db, t, "worker restarted", body.id)
     cfg = request.app.state.cfg
+    from ..state import kv_get
+
     return {
         "worker_id": body.id,
+        "config_version": kv_get(db, "agent_config_version", 0),
         "heartbeat_seconds": max(5, cfg.heartbeat_timeout // 3),
         "lease_seconds": cfg.lease_seconds,
     }

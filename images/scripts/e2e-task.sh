@@ -61,7 +61,7 @@ echo "== queue task"
 stamp=$(date -u +%Y%m%d-%H%M%S)
 task=$(api POST /tasks -d "$(jq -n --arg r "$E2E_REPO" --arg s "$stamp" '{
   title: ("E2E: add e2e/" + $s + ".md"),
-  description: ("Create the file e2e/" + $s + ".md containing one line: \\"hello from the devenv e2e test\\". Open a pull request for it."),
+  description: ("Create the file e2e/" + $s + ".md containing one line: hello from the devenv e2e test. Open a pull request for it."),
   repo: $r, provider: "claude", max_attempts: 2}')" | jq -r .id)
 echo "task $task"
 
