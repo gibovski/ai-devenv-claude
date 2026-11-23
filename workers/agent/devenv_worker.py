@@ -1,6 +1,8 @@
 """Agent worker: registers with the control plane, claims tasks, runs Claude Code or Codex headless,
 and reports the pull request it opened. Standard library only."""
 
+import fcntl
+import hashlib
 import json
 import os
 import re
@@ -22,7 +24,7 @@ MODEL = os.environ.get("MODEL", "")
 WORKSPACE = Path(os.environ.get("WORKSPACE", "/workspace"))
 AGENT_CONFIG = Path(os.environ.get("AGENT_CONFIG_DIR", "/etc/devenv-agent"))
 # An empty credential variable would shadow the other auth method in Claude Code, so drop empty ones.
-for _name in ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "OPENAI_API_KEY"):
+for _name in ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "OPENAI_API_KEY", "CODEX_AUTH_JSON"):
     if not os.environ.get(_name):
         os.environ.pop(_name, None)
 TASK_TIMEOUT = int(os.environ.get("TASK_TIMEOUT_SECONDS", str(3 * 3600)))
@@ -250,8 +252,10 @@ def do_task(task: dict, interval: int) -> None:
     shutil.rmtree(workdir, ignore_errors=True)
     workdir.mkdir(parents=True)
     result: dict
+    auth_before = ""
     try:
         apply_agent_config()
+        auth_before = pull_codex_auth()
         att_dir = workdir / "attachments"
         names = fetch_attachments(task, att_dir)
         if task["repo"]:
@@ -276,6 +280,7 @@ def do_task(task: dict, interval: int) -> None:
         result = {"outcome": "failed", "error": str(e)[-2000:]}
     finally:
         rep.close()
+        push_codex_auth(auth_before)
     log(f"task {task['id']}: {result['outcome']}")
     try:
         call("POST", f"/api/workers/{WORKER_ID}/tasks/{task['id']}/result", result)
@@ -284,8 +289,96 @@ def do_task(task: dict, interval: int) -> None:
     shutil.rmtree(workdir, ignore_errors=True)
 
 
+# ChatGPT sign-in for Codex. The pasted auth.json seeds a directory shared by all Codex agents; each task
+# copies it in, and copies it back if Codex refreshed the tokens, so every agent keeps a working sign-in.
+SHARED_AUTH = Path(os.environ.get("CODEX_SHARED_AUTH_DIR", "/codex-auth"))
+
+
+def _codex_auth_file() -> Path:
+    return Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))) / "auth.json"
+
+
+def _digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _write_private(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(data)
+    os.replace(tmp, path)
+
+
+class _SharedLock:
+    def __enter__(self):
+        self.f = open(SHARED_AUTH / ".lock", "a")  # noqa: SIM115
+        fcntl.flock(self.f, fcntl.LOCK_EX)
+
+    def __exit__(self, *exc):
+        fcntl.flock(self.f, fcntl.LOCK_UN)
+        self.f.close()
+
+
+def _shared_ok() -> bool:
+    return SHARED_AUTH.is_dir() and os.access(SHARED_AUTH, os.W_OK)
+
+
+def seed_codex_auth() -> None:
+    """Put the sign-in pasted in Settings into the shared directory when it is a new one."""
+    raw = os.environ.get("CODEX_AUTH_JSON", "").encode()
+    if not raw:
+        return
+    if not _shared_ok():
+        _write_private(_codex_auth_file(), raw)
+        return
+    with _SharedLock():
+        seed = SHARED_AUTH / "seed.sha256"
+        if not (SHARED_AUTH / "auth.json").exists() or not seed.exists() or seed.read_text().strip() != _digest(raw):
+            _write_private(SHARED_AUTH / "auth.json", raw)
+            seed.write_text(_digest(raw))
+            log("ChatGPT sign-in for Codex updated from Settings")
+
+
+def pull_codex_auth() -> str:
+    """Copy the shared sign-in into this agent's Codex home. Returns its digest ("" if none)."""
+    if PROVIDER != "codex" or not os.environ.get("CODEX_AUTH_JSON"):
+        return ""
+    if _shared_ok():
+        with _SharedLock():
+            shared = SHARED_AUTH / "auth.json"
+            if shared.exists():
+                _write_private(_codex_auth_file(), shared.read_bytes())
+    local = _codex_auth_file()
+    return _digest(local.read_bytes()) if local.exists() else ""
+
+
+def push_codex_auth(before: str) -> None:
+    """If Codex refreshed the tokens during the task, share the new ones with the other agents."""
+    local = _codex_auth_file()
+    if not before or not local.exists() or not _shared_ok():
+        return
+    data = local.read_bytes()
+    if _digest(data) == before:
+        return
+    try:
+        json.loads(data)
+    except ValueError:
+        return
+    with _SharedLock():
+        _write_private(SHARED_AUTH / "auth.json", data)
+    log("shared refreshed ChatGPT sign-in")
+
+
 def login() -> None:
-    if PROVIDER == "codex" and os.environ.get("OPENAI_API_KEY"):
+    if PROVIDER != "codex":
+        return
+    if os.environ.get("CODEX_AUTH_JSON"):
+        # ChatGPT subscription sign-in wins over an API key when both are set.
+        os.environ.pop("OPENAI_API_KEY", None)
+        seed_codex_auth()
+    elif os.environ.get("OPENAI_API_KEY"):
         subprocess.run(
             ["codex", "login", "--with-api-key"], input=os.environ["OPENAI_API_KEY"], text=True, capture_output=True
         )

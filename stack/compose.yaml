@@ -61,10 +61,14 @@ services:
       WORKER_TOKEN: ${WORKER_TOKEN:-}
       MODEL: ${CODEX_MODEL:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # ChatGPT sign-in (auth.json from `codex login`); seeds /codex-auth, which all Codex agents share
+      # so a refreshed token reaches every agent.
+      CODEX_AUTH_JSON: ${CODEX_AUTH_JSON:-}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       GH_TOKEN: ${GITHUB_TOKEN:-}
     volumes:
       - /var/lib/devenv/agent-config:/etc/devenv-agent:ro
+      - /var/lib/devenv/codex-auth:/codex-auth
 
   # Optional: OpenHands web agent on port 3000 (enable in Settings > Coding agents).
   openhands:

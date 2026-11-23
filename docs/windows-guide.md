@@ -62,11 +62,38 @@ On the **Settings** page:
 |---|---|
 | GitHub | A personal access token with `repo` and `workflow` scopes, the owner and a default repository. Keep *auto merge* on so the definition of done (merged to main) can be reached without you. |
 | Claude | Your Claude Pro/Max subscription token (run `claude setup-token` on a computer with Claude Code and paste the result), or an Anthropic API key. Then the number of Claude agents and the model (Opus 5.5 is the default). All agents share your subscription's usage limits. |
-| OpenAI | An API key, the number of Codex agents and the model. |
+| Codex (OpenAI) | Your ChatGPT subscription sign-in (see below), or an OpenAI API key. Then the number of Codex agents and the model. |
 | Cloudflare | API token, account id, zone, hostname and the emails allowed through Cloudflare Access. See [tunnels.md](tunnels.md). |
 
-Use **Check** next to each credential, then **Apply**. Apply shows the change it will make, then starts or
+Use **Test connection** next to each credential, then **Apply**. Apply shows the change it will make, then starts or
 stops agent containers to match.
+
+### Using your ChatGPT subscription for Codex (no API key)
+
+Codex agents can sign in with your ChatGPT Plus, Pro or Business plan instead of a paid API key. You sign
+in once on your PC and paste the result into Settings:
+
+1. Install Node.js (one time). Open **PowerShell** and run:
+   `winget install OpenJS.NodeJS.LTS`
+   then close PowerShell and open a new one.
+2. Install the Codex CLI: `npm install -g @openai/codex`
+3. Sign in: `codex login`. A browser opens. Choose **Sign in with ChatGPT** and log in.
+   When it says you are signed in, go back to PowerShell.
+4. Open the file it saved: `notepad $env:USERPROFILE\.codex\auth.json`.
+   Press **Ctrl+A**, then **Ctrl+C**.
+5. In the dev environment: **Settings → Codex (OpenAI) → ChatGPT sign-in for Codex**, click the box,
+   press **Ctrl+V**, then **Test connection**. It should say *ChatGPT sign-in for you@example.com (plus plan)*.
+6. Set the number of Codex agents (start with 1), **Save settings**, then **Apply**.
+
+The agents keep the sign-in fresh by themselves and share it, so you only do this again if you sign out of
+ChatGPT everywhere or the test says it stopped working. All Codex agents count against your plan's usage
+limits. Treat `auth.json` like a password: it is stored encrypted on the VM, never in the image, and you
+can delete the copy on your PC afterwards (`codex logout` signs that copy out).
+
+No Node.js on your PC? Do it on the VM instead: `ssh dev@<vm-ip>`, then
+`mkdir -p ~/codex-login && sudo docker run --rm -it --entrypoint codex -v ~/codex-login:/home/agent/.codex ghcr.io/gibovski/ai-devenv-claude/worker-codex:latest login --device-auth`,
+open the link it shows on your PC, enter the code, and finally `cat ~/codex-login/auth.json` and copy
+the output into Settings (then `rm -r ~/codex-login`).
 
 ### Sharing the VM with friends
 

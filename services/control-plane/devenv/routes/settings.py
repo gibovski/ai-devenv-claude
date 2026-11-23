@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
@@ -40,7 +42,14 @@ def put_secrets(body: SecretsIn, request: Request):
     if unknown:
         raise HTTPException(400, f"Unknown secrets: {', '.join(sorted(unknown))}")
     for name, value in body.values.items():
-        request.app.state.secrets.set(name, value.strip())
+        value = value.strip()
+        if name == "codex_auth_json" and value:
+            try:
+                # One line, so it fits in the compose env file.
+                value = json.dumps(json.loads(value), separators=(",", ":"))
+            except ValueError:
+                raise HTTPException(400, "The ChatGPT sign-in must be the whole auth.json file (JSON)") from None
+        request.app.state.secrets.set(name, value)
     return secret_status(request)
 
 
@@ -56,6 +65,7 @@ def check(provider: str, request: Request, body: CheckIn | None = None):
     secret_name = {
         "github": "github_token",
         "openai": "openai_api_key",
+        "codex": "codex_auth_json",
         "anthropic": "anthropic_api_key",
         "claude": "claude_code_oauth_token",
         "cloudflare": "cloudflare_api_token",
@@ -70,6 +80,8 @@ def check(provider: str, request: Request, body: CheckIn | None = None):
         return checks.check_github(value, request.app.state.cfg.github_api)
     if provider == "openai":
         return checks.check_openai(value)
+    if provider == "codex":
+        return checks.check_codex_auth(value)
     if provider == "anthropic":
         return checks.check_anthropic(value)
     if provider == "claude":
