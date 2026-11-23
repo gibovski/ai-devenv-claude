@@ -129,7 +129,7 @@ build {
   }
 
   provisioner "shell" {
-    execute_command = "sudo -E bash '{{ .Path }}'"
+    execute_command = "{{ .Vars }} sudo -E bash '{{ .Path }}'"
     environment_vars = [
       "DEBIAN_FRONTEND=noninteractive",
       "DEVENV_VERSION=${var.version}",

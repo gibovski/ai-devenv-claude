@@ -17,7 +17,11 @@ if [ ! -f "$STATE/initial-admin-password" ]; then
   printf '%s\n' "$pw" > "$STATE/initial-admin-password"
   chmod 0600 "$STATE/initial-admin-password"
   echo "dev:$pw" | chpasswd
-  chage -d 0 dev   # force a new SSH password at first login
+  # Force a new SSH password at the first password login. Skip it when cloud-init installed SSH keys:
+  # sshd would otherwise refuse non-interactive key logins until the password is changed.
+  if [ ! -s /home/dev/.ssh/authorized_keys ]; then
+    chage -d 0 dev
+  fi
 fi
 
 touch "$STATE/firstboot.done"
