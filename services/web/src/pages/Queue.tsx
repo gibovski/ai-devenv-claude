@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import { usePoll } from "../usePoll";
 import type { Task } from "../types";
+import { ModelFields, modelSummary, useCatalogue, type ModelChoice } from "../components/ModelFields";
 
 const FILTERS = ["open", "all", "ready", "blocked", "in_progress", "in_review", "needs_human", "done"];
 
@@ -16,13 +17,14 @@ function NewTask({ onCreated, tasks }: { onCreated: () => void; tasks: Task[] })
   const [description, setDescription] = useState("");
   const [repo, setRepo] = useState("");
   const [deps, setDeps] = useState<number[]>([]);
+  const [choice, setChoice] = useState<ModelChoice>({ complexity: "", model: "", effort: "" });
   const [files, setFiles] = useState<FileList | null>(null);
   const [msg, setMsg] = useState("");
   if (!open) return <button onClick={() => setOpen(true)}>New task</button>;
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const t = await api<Task>("/api/tasks", { method: "POST", json: { title, description, repo, depends_on: deps } });
+      const t = await api<Task>("/api/tasks", { method: "POST", json: { title, description, repo, depends_on: deps, ...choice } });
       if (files?.length) {
         const fd = new FormData();
         Array.from(files).forEach((f) => fd.append("files", f));
@@ -31,6 +33,7 @@ function NewTask({ onCreated, tasks }: { onCreated: () => void; tasks: Task[] })
       setTitle("");
       setDescription("");
       setDeps([]);
+      setChoice({ complexity: "", model: "", effort: "" });
       setFiles(null);
       setOpen(false);
       onCreated();
@@ -53,6 +56,7 @@ function NewTask({ onCreated, tasks }: { onCreated: () => void; tasks: Task[] })
         Repository: name or owner/name, new:name to create one, blank for the default
         <input value={repo} placeholder="my-app, me/my-app or new:my-new-app" onChange={(e) => setRepo(e.target.value)} />
       </label>
+      <ModelFields value={choice} onChange={setChoice} />
       <label>
         Depends on
         <select multiple value={deps.map(String)} onChange={(e) => setDeps(Array.from(e.target.selectedOptions).map((o) => Number(o.value)))}>
@@ -106,6 +110,7 @@ function ImportPlan({ onCreated }: { onCreated: () => void }) {
 export default function Queue() {
   const { data, error, reload } = usePoll<Task[]>("/api/tasks", 4000);
   const [filter, setFilter] = useState("open");
+  const cat = useCatalogue();
   if (error) return <p className="error">{error}</p>;
   if (!data) return <p>Loading…</p>;
   const shown = data.filter((t) => {
@@ -148,7 +153,8 @@ export default function Queue() {
                   {t.description.length > 140 && "…"}
                 </div>
                 <div className="muted small">
-                  {t.repo || "no repo"} {typeof t.attachments === "number" && t.attachments > 0 && `· 📎 ${t.attachments}`}
+                  {t.repo || "no repo"} · <span title={t.model_reason}>{modelSummary(t, cat)}</span>{" "}
+                  {typeof t.attachments === "number" && t.attachments > 0 && `· 📎 ${t.attachments}`}
                 </div>
               </td>
               <td>

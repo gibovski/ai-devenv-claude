@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from .. import queue, repos
 from ..auth import require
+from ..catalogue.loader import choose_model
 
 router = APIRouter(prefix="/api/workers", tags=["workers"], dependencies=[Depends(require("worker"))])
 
@@ -153,6 +154,14 @@ def claim(worker_id: str, request: Request):
     if task["repo"] and not _prepare_repo(request, worker_id, task, s):
         db.run("UPDATE workers SET state = 'idle', current_task_id = NULL WHERE id = ?", worker_id)
         return Response(status_code=204)
+    task["run"] = choose_model(task, w["provider"])
+    if task["run"]["model"]:
+        queue.event(
+            db, task["id"], "log",
+            f"model {task['run']['model']}{' (' + task['run']['effort'] + ' effort)' if task['run']['effort'] else ''} "
+            f"from the {task['run']['source']}",
+            worker_id,
+        )  # fmt: skip
     task["git"] = {"user_name": s.github.git_user_name, "user_email": s.github.git_user_email}
     task["attachment_urls"] = [
         {

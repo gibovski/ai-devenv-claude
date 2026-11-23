@@ -4,6 +4,7 @@ import { api } from "../api";
 import { usePoll } from "../usePoll";
 import type { Attachment, Task, TaskEvent } from "../types";
 import { Badge } from "./Queue";
+import { ModelFields, modelSummary, useCatalogue, type ModelChoice } from "../components/ModelFields";
 
 export default function TaskDetail() {
   const { id } = useParams();
@@ -11,6 +12,8 @@ export default function TaskDetail() {
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const last = useRef(0);
   const [msg, setMsg] = useState("");
+  const cat = useCatalogue();
+  const [editing, setEditing] = useState<ModelChoice | null>(null);
 
   useEffect(() => {
     last.current = 0;
@@ -49,6 +52,19 @@ export default function TaskDetail() {
       setMsg((e as Error).message);
     }
   };
+  const saveModel = async () => {
+    if (!editing) return;
+    try {
+      await api(`/api/tasks/${t.id}`, {
+        method: "PATCH",
+        json: { ...editing, model_reason: `set by hand (was ${modelSummary(t, cat)})` },
+      });
+      setEditing(null);
+      task.reload();
+    } catch (e) {
+      setMsg((e as Error).message);
+    }
+  };
   const upload = async (files: FileList | null) => {
     if (!files?.length) return;
     const fd = new FormData();
@@ -77,6 +93,27 @@ export default function TaskDetail() {
             <tr><th>Branch</th><td>{t.branch || "—"}</td></tr>
             <tr><th>Pull request</th><td>{t.pr_url ? <a href={t.pr_url} target="_blank" rel="noreferrer">{t.pr_url}</a> : "—"}</td></tr>
             <tr><th>Deploy</th><td>{t.deploy_status || "—"}</td></tr>
+            <tr>
+              <th>Model</th>
+              <td>
+                {modelSummary(t, cat)}
+                {t.model_reason && <div className="muted small">{t.model_reason}</div>}
+                {editing ? (
+                  <div className="stack">
+                    <ModelFields value={editing} onChange={setEditing} />
+                    <div className="actions">
+                      <button onClick={saveModel}>Save</button>
+                      <button className="secondary" onClick={() => setEditing(null)}>Cancel</button>
+                    </div>
+                    <p className="muted small">Applies the next time an agent starts this task.</p>
+                  </div>
+                ) : (
+                  <button className="link" onClick={() => setEditing({ complexity: t.complexity, model: t.model, effort: t.effort })}>
+                    Change
+                  </button>
+                )}
+              </td>
+            </tr>
             <tr><th>Agent</th><td>{t.worker_id || "—"} (provider: {t.provider})</td></tr>
             <tr><th>Attempts</th><td>{t.attempts}/{t.max_attempts}</td></tr>
             <tr><th>Priority</th><td>{t.priority}</td></tr>

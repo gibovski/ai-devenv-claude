@@ -475,6 +475,12 @@
       "title": "Base Branch",
       "type": "string"
      },
+     "complexity": {
+      "default": "",
+      "description": "trivial, small, medium, large or hard: picks the model (see /api/models)",
+      "title": "Complexity",
+      "type": "string"
+     },
      "depends_on": {
       "description": "Keys from this plan or existing task ids",
       "items": {
@@ -493,6 +499,12 @@
      "description": {
       "default": "",
       "title": "Description",
+      "type": "string"
+     },
+     "effort": {
+      "default": "",
+      "pattern": "^(|low|medium|high|xhigh|max)$",
+      "title": "Effort",
       "type": "string"
      },
      "key": {
@@ -519,6 +531,20 @@
        }
       ],
       "title": "Max Attempts"
+     },
+     "model": {
+      "default": "",
+      "description": "A specific model id; overrides the complexity rating",
+      "maxLength": 100,
+      "title": "Model",
+      "type": "string"
+     },
+     "model_reason": {
+      "default": "",
+      "description": "Why this complexity or model",
+      "maxLength": 500,
+      "title": "Model Reason",
+      "type": "string"
      },
      "priority": {
       "default": 0,
@@ -564,6 +590,17 @@
       ],
       "title": "Action"
      },
+     "complexity": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Complexity"
+     },
      "description": {
       "anyOf": [
        {
@@ -574,6 +611,42 @@
        }
       ],
       "title": "Description"
+     },
+     "effort": {
+      "anyOf": [
+       {
+        "pattern": "^(|low|medium|high|xhigh|max)$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Effort"
+     },
+     "model": {
+      "anyOf": [
+       {
+        "maxLength": 100,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Model"
+     },
+     "model_reason": {
+      "anyOf": [
+       {
+        "maxLength": 500,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Model Reason"
      },
      "priority": {
       "anyOf": [

@@ -46,3 +46,37 @@ usage_tiers:
   high: High token usage
   medium: Medium token usage
   low: Low token usage
+# How hard a task is decides which model runs it. Controllers (Claude or ChatGPT) rate each task when
+# they plan it, people can change the rating or pick a model per task on the task page, and tasks
+# without a rating use the model chosen in Settings. effort: low, medium, high, xhigh or max.
+complexity:
+  trivial:
+    label: Trivial
+    when: Typos, wording, a config value, a one-line fix
+    anthropic: claude-haiku-5-5
+    openai: gpt-5-nano
+    effort: low
+  small:
+    label: Small
+    when: One file or function with a clear spec and tests to copy
+    anthropic: claude-sonnet-5-5
+    openai: gpt-5-mini
+    effort: medium
+  medium:
+    label: Medium
+    when: Several files, a new endpoint, component or module with tests
+    anthropic: claude-sonnet-5-5
+    openai: gpt-5-codex
+    effort: high
+  large:
+    label: Large
+    when: A cross-cutting change, infrastructure, an unfamiliar codebase, a new project scaffold
+    anthropic: claude-opus-5-5
+    openai: gpt-5-codex
+    effort: high
+  hard:
+    label: Hard
+    when: Architecture, security, concurrency, or debugging without a known cause
+    anthropic: claude-opus-5-5
+    openai: gpt-5-codex
+    effort: xhigh

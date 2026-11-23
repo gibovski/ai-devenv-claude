@@ -17,7 +17,13 @@ export type SettingsT = {
 };
 export type SecretStatus = Record<string, { label: string; set: boolean; updated_at?: string }>;
 export type Model = { id: string; label: string; usage: string; note?: string; price?: { input: number; output: number } };
-export type Catalogue = { anthropic: Model[]; openai: Model[]; usage_tiers: Record<string, string> };
+export type Level = { label: string; when: string; anthropic: string; openai: string; effort: string };
+export type Catalogue = {
+  anthropic: Model[];
+  openai: Model[];
+  usage_tiers: Record<string, string>;
+  complexity?: Record<string, Level>;
+};
 export type Check = { ok: boolean; detail: string };
 export type Agent = {
   id: string;
@@ -55,6 +61,10 @@ export type Task = {
   pr_url: string;
   deploy_status: string;
   last_error: string;
+  complexity: string;
+  model: string;
+  effort: string;
+  model_reason: string;
   created_at: string;
   updated_at: string;
   deps: DepRef[];

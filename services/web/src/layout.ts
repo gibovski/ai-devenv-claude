@@ -1,4 +1,4 @@
-export type GNode = { id: number; title: string; status: string; state: string; repo: string };
+export type GNode = { id: number; title: string; status: string; state: string; repo: string; complexity?: string; model?: string };
 export type GEdge = { from: number; to: number };
 export type Placed = GNode & { x: number; y: number; layer: number };
 

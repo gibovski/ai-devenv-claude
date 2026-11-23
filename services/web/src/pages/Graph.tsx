@@ -61,7 +61,7 @@ export default function Graph() {
             })}
             {placed.map((n) => (
               <g key={n.id} transform={`translate(${n.x},${n.y})`} style={{ cursor: "pointer" }} onClick={() => nav(`/tasks/${n.id}`)}>
-                <title>{`#${n.id} ${n.title}\n${n.state}${n.repo ? `\n${n.repo}` : ""}`}</title>
+                <title>{`#${n.id} ${n.title}\n${n.state}${n.repo ? `\n${n.repo}` : ""}${n.complexity || n.model ? `\n${[n.complexity, n.model].filter(Boolean).join(" → ")}` : ""}`}</title>
                 <rect width={W} height={H} rx={8} fill={FILL[n.state] ?? "#fff"} stroke={STROKE[n.state] ?? "#9ca3af"} />
                 <text x={10} y={18} fontSize={12} fontWeight={600} style={{ fill: "#1d2330" }}>
                   #{n.id} {n.state.replace("_", " ")}
