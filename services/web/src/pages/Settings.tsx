@@ -316,6 +316,12 @@ export default function Settings() {
       </Section>
 
       <Section title="Coding agents">
+        <p className="hint">
+          The model chosen here is the default. When Claude (Baz) or ChatGPT plans work, it rates each task from trivial
+          to hard, and the agent runs it with the matching model: small models for small tasks save your usage limits.
+          You can change the rating or pick a model on any task's page. If a task's model isn't available to an agent,
+          the agent uses the model chosen here.
+        </p>
         <div className="grid2">
           <div>
             <label>
@@ -342,6 +348,12 @@ export default function Settings() {
           <input type="checkbox" checked={s.agents.openhands_enabled} onChange={(e) => set((d) => void (d.agents.openhands_enabled = e.target.checked))} />
           Also run OpenHands (optional web UI agent)
         </label>
+        {s.agents.openhands_enabled && (
+          <p className="hint">
+            OpenHands opens at port 3000 of this VM (for example http://{window.location.hostname}:3000/), on your network only.
+            It needs an Anthropic API key above; a Claude subscription token can't drive it. It doesn't take work from the queue.
+          </p>
+        )}
       </Section>
 
       <div className="actions">

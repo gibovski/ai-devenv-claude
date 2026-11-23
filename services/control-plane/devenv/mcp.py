@@ -13,11 +13,27 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import ValidationError
 
 from . import __version__, auth, queue
+from .catalogue.loader import catalogue
 from .routes.agents import agent_status
 from .routes.tasks import PlanIn, TaskPatch, _create, patch_task
 
 router = APIRouter(tags=["mcp"])
 PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"]
+
+MODEL_PROPS = {
+    "complexity": {
+        "type": "string",
+        "enum": ["trivial", "small", "medium", "large", "hard"],
+        "description": "Your rating of how hard the task is; it picks the model (see the table in get_planning_guide)",
+    },
+    "model_reason": {"type": "string", "description": "One sentence on why you rated it so"},
+    "model": {"type": "string", "description": "Only to force a specific model id; normally leave empty"},
+    "effort": {
+        "type": "string",
+        "enum": ["low", "medium", "high", "xhigh", "max"],
+        "description": "Overrides the effort",
+    },
+}
 
 TASK_SCHEMA = {
     "type": "object",
@@ -37,6 +53,7 @@ TASK_SCHEMA = {
         },
         "priority": {"type": "integer"},
         "provider": {"type": "string", "enum": ["any", "claude", "codex"]},
+        **MODEL_PROPS,
     },
     "required": ["title"],
 }
@@ -79,7 +96,8 @@ TOOLS = [
     },
     {
         "name": "update_task",
-        "description": "Edit a task (title, description, priority, repo, provider) or act on it: cancel, requeue.",
+        "description": "Edit a task (title, description, priority, repo, provider, complexity or model) or act on "
+        "it: cancel, requeue. Re-rate queued tasks' complexity here.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -89,6 +107,7 @@ TOOLS = [
                 "priority": {"type": "integer"},
                 "repo": {"type": "string"},
                 "provider": {"type": "string", "enum": ["any", "claude", "codex"]},
+                **MODEL_PROPS,
                 "action": {"type": "string", "enum": ["cancel", "requeue"]},
             },
             "required": ["id"],
@@ -133,8 +152,23 @@ TOOLS = [
 ]
 
 
+def model_table() -> str:
+    """The complexity → model table from the catalogue, so the guide always matches what workers run."""
+    cat = catalogue()
+    rows = [
+        "## Complexity and models (current catalogue)",
+        "| complexity | when | Claude agents | Codex agents | effort |",
+        "|---|---|---|---|---|",
+    ]
+    for level, r in (cat.get("complexity") or {}).items():
+        rows.append(
+            f"| `{level}` | {r.get('when', '')} | {r.get('anthropic', '')} | {r.get('openai', '')} | {r.get('effort', '')} |"
+        )
+    return "\n".join(rows) + "\n"
+
+
 def planning_prompt() -> str:
-    return resources.files("devenv").joinpath("planning_prompt.md").read_text()
+    return resources.files("devenv").joinpath("planning_prompt.md").read_text() + "\n" + model_table()
 
 
 def _principal(request: Request, path_token: str | None) -> auth.Principal:
@@ -188,7 +222,20 @@ def call_tool(request: Request, p: auth.Principal, name: str, args: dict) -> dic
         return _text(
             {
                 "tasks": [
-                    {k: t[k] for k in ("id", "title", "state", "repo", "attempts", "pr_url", "worker_id")}
+                    {
+                        k: t[k]
+                        for k in (
+                            "id",
+                            "title",
+                            "state",
+                            "repo",
+                            "complexity",
+                            "model",
+                            "attempts",
+                            "pr_url",
+                            "worker_id",
+                        )
+                    }
                     | {"depends_on": [{"id": d["id"], "status": d["status"]} for d in t["deps"]]}
                     for t in tasks
                 ]

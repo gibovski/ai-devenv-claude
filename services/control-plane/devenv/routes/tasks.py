@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from .. import queue, repos
 from ..auth import Principal, require
+from ..catalogue.loader import complexity_levels
 from ..state import load_settings
 
 router = APIRouter(prefix="/api", tags=["tasks"])
@@ -35,6 +36,10 @@ class TaskIn(BaseModel):
     priority: int = 0
     provider: str = Field("any", pattern="^(any|claude|codex)$")
     max_attempts: int | None = Field(None, ge=1, le=10)
+    complexity: str = Field("", description="trivial, small, medium, large or hard: picks the model (see /api/models)")
+    model: str = Field("", max_length=100, description="A specific model id; overrides the complexity rating")
+    effort: str = Field("", pattern="^(|low|medium|high|xhigh|max)$")
+    model_reason: str = Field("", max_length=500, description="Why this complexity or model")
     depends_on: list[str | int] = Field(default_factory=list, description="Keys from this plan or existing task ids")
 
 
@@ -49,11 +54,22 @@ class TaskPatch(BaseModel):
     priority: int | None = None
     repo: str | None = None
     provider: str | None = Field(None, pattern="^(any|claude|codex)$")
+    complexity: str | None = None
+    model: str | None = Field(None, max_length=100)
+    effort: str | None = Field(None, pattern="^(|low|medium|high|xhigh|max)$")
+    model_reason: str | None = Field(None, max_length=500)
     action: str | None = Field(None, pattern="^(cancel|requeue|mark_done)$")
 
 
 class DepsIn(BaseModel):
     depends_on: list[int]
+
+
+def _check_model(d: dict) -> None:
+    if d.get("complexity") and d["complexity"] not in complexity_levels():
+        raise HTTPException(400, f"complexity must be one of {', '.join(complexity_levels())} (or empty)")
+    if d.get("model") and not re.fullmatch(r"[\w.:/@-]+", d["model"]):
+        raise HTTPException(400, f"Not a model id: {d['model']!r}")
 
 
 def _repo(spec: str, s) -> str:
@@ -70,6 +86,7 @@ def _create(request: Request, plan: PlanIn, p: Principal) -> list[dict]:
     items = [t.model_dump() for t in plan.tasks]
     for d in items:
         d["repo"] = _repo(d["repo"] or default_repo, s)
+        _check_model(d)
     # Later tasks of a plan may name a repository that an earlier task creates (`new:x`) by its plain name,
     # without the configured suffix: point them at the repository that will exist.
     created = {
@@ -140,6 +157,7 @@ def patch_task(task_id: int, body: TaskPatch, request: Request):
     fields = body.model_dump(exclude_none=True, exclude={"action"})
     if "repo" in fields:
         fields["repo"] = _repo(fields["repo"], load_settings(db))
+    _check_model(fields)
     if fields:
         db.run(
             f"UPDATE tasks SET {', '.join(f'{k} = ?' for k in fields)}, updated_at = ? WHERE id = ?",
@@ -177,10 +195,7 @@ def graph(request: Request, include_done: bool = True):
     if not include_done:
         tasks = [t for t in tasks if t["status"] not in ("done", "cancelled")]
     ids = {t["id"] for t in tasks}
-    nodes = [
-        {"id": t["id"], "title": t["title"], "status": t["status"], "state": t["state"], "repo": t["repo"]}
-        for t in tasks
-    ]
+    nodes = [{k: t[k] for k in ("id", "title", "status", "state", "repo", "complexity", "model")} for t in tasks]
     edges = [{"from": d["id"], "to": t["id"]} for t in tasks for d in t["deps"] if d["id"] in ids]
     return {"nodes": nodes, "edges": edges}
 

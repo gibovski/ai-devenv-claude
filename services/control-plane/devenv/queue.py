@@ -147,8 +147,8 @@ def create_tasks(db: Database, items: list[dict], created_by: str, default_max_a
         ids = []
         for it in items:
             cur = conn.execute(
-                "INSERT INTO tasks(title, description, repo, base_branch, priority, provider, max_attempts, plan_key, created_by) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO tasks(title, description, repo, base_branch, priority, provider, max_attempts, plan_key, "
+                "created_by, complexity, model, effort, model_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     it["title"],
                     it.get("description", ""),
@@ -159,6 +159,10 @@ def create_tasks(db: Database, items: list[dict], created_by: str, default_max_a
                     int(it.get("max_attempts") or default_max_attempts),
                     it.get("key"),
                     created_by,
+                    it.get("complexity", ""),
+                    it.get("model", ""),
+                    it.get("effort", ""),
+                    it.get("model_reason", ""),
                 ),
             )
             ids.append(cur.lastrowid)

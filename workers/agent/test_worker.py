@@ -90,3 +90,34 @@ def test_codex_auth_is_seeded_shared_and_refreshed(tmp_path, monkeypatch):
     monkeypatch.setenv("CODEX_AUTH_JSON", '{"tokens":{"refresh_token":"r3"}}')
     w.seed_codex_auth()  # a newly pasted sign-in replaces it
     assert "r3" in (shared / "auth.json").read_text()
+
+
+def test_task_model_and_effort():
+    w.PROVIDER, w.MODEL = "claude", "claude-opus-5-5"
+    cmd = w.agent_command("x", "claude-haiku-5-5", "low")
+    assert cmd[cmd.index("--model") + 1] == "claude-haiku-5-5" and cmd[cmd.index("--effort") + 1] == "low"
+    assert "--effort" not in w.agent_command("x") and "claude-opus-5-5" in w.agent_command("x", "")
+    w.PROVIDER, w.MODEL = "codex", "gpt-5-codex"
+    cmd = w.agent_command("x", "gpt-5-mini", "xhigh")
+    assert "model_reasoning_effort=high" in cmd and cmd[cmd.index("--model") + 1] == "gpt-5-mini" and cmd[-1] == "x"
+
+
+def test_unavailable_model_falls_back_to_settings(monkeypatch, tmp_path):
+    w.PROVIDER, w.MODEL = "claude", "claude-opus-5-5"
+    calls = []
+
+    def fake(cmd, cwd, rep, model):
+        calls.append(model)
+        return (1, "Error: model claude-fable-5-2 is not available on your plan") if len(calls) == 1 else (0, "ok")
+
+    monkeypatch.setattr(w, "_run_agent", fake)
+
+    class Rep:
+        def line(self, text):
+            pass
+
+    assert w.run_agent("p", tmp_path, Rep(), {"model": "claude-fable-5-2"}) == (0, "ok")
+    assert calls == ["claude-fable-5-2", "claude-opus-5-5"]
+    calls.clear()
+    monkeypatch.setattr(w, "_run_agent", lambda *a: calls.append(a[3]) or (1, "tests failed"))
+    assert w.run_agent("p", tmp_path, Rep(), {"model": "claude-haiku-5-5"})[0] == 1 and len(calls) == 1

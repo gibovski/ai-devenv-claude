@@ -94,6 +94,28 @@ Your token can create repositories when it is a *classic* token with the `repo` 
 token needs **All repositories** plus *Administration: Read and write* (and *Contents*, *Pull requests*,
 *Workflows: Read and write*).
 
+### Which model runs each task
+
+The model you choose for Claude and Codex agents in Settings is the default. When Claude (Baz) or ChatGPT
+plans work, it also rates each task's **complexity** and gives a one-line reason, and the agent that picks
+the task up uses the matching model:
+
+| Complexity | Typical task | Claude agents | Codex agents | Effort |
+|---|---|---|---|---|
+| Trivial | typo, wording, a config value | Haiku 5.5 | GPT-5 nano | low |
+| Small | one file or function with a clear spec | Sonnet 5.5 | GPT-5 mini | medium |
+| Medium | several files, a new endpoint or component | Sonnet 5.5 | GPT-5 Codex | high |
+| Large | cross-cutting change, infrastructure, new project | Opus 5.5 | GPT-5 Codex | high |
+| Hard | architecture, security, hard bugs | Opus 5.5 | GPT-5 Codex | xhigh |
+
+Small models use much less of your subscription's limits, so routine work leaves room for the big tasks.
+The **Queue** shows each task's rating and model (hover for the reason), and the **Graph** shows it when you
+hover a task. To change it, open the task, click **Change** next to *Model*, pick a complexity, a specific
+model (for example Fable 5.2 for one difficult task) or an effort, and **Save**. It applies the next time
+an agent starts the task. If a chosen model isn't available to an agent (for example on your plan), the
+agent runs the task again with the model from Settings. The table lives in one place,
+`services/control-plane/devenv/catalogue/models.yaml`, together with the model list and usage tiers.
+
 ### Using your ChatGPT subscription for Codex (no API key)
 
 Codex agents can sign in with your ChatGPT Plus, Pro or Business plan instead of a paid API key. You sign
@@ -131,7 +153,8 @@ download link or a fresh image, not a VM you have already set up.
 
 ## 5. Give the agents work
 
-- **Queue** page: add tasks by hand, import a YAML/JSON/TSV plan, set dependencies, attach files.
+- **Queue** page: add tasks by hand, import a YAML/JSON/TSV plan, set dependencies, attach files, and rate a
+  task's complexity (or pick its model).
 - **Graph** page: see the dependency graph; ready tasks are picked up first.
 - **Controllers** page: create a token for Claude (Baz) or ChatGPT, which then plan and queue work through
   the MCP server or the OpenAPI actions. See [controllers/README.md](controllers/README.md).
@@ -164,4 +187,5 @@ and restore it the same way before logging in. In-place updates also work: `ssh 
 | No IP printed | The Default Switch can take a minute; run `Get-VMNetworkAdapter devenv` later, or open the console. |
 | `devenv.local` does not resolve | Use the IP. mDNS needs Bonjour/mDNS support on Windows (built into Windows 10 1803+ for most browsers). |
 | Secure Boot error at boot | `Set-VMFirmware devenv -SecureBootTemplate MicrosoftUEFICertificateAuthority` |
+| OpenHands | Optional. Tick *Also run OpenHands* in Settings and Apply, then open `http://<vm-ip>:3000/` (your network only, not through the tunnel). It needs an Anthropic API key; it is a separate chat-style agent and doesn't take work from the queue. |
 | Agents stay *offline* | Settings, Check each credential, then Apply again; `ssh dev@<ip>` and `docker compose -p devenv logs` in `/opt/devenv`. |

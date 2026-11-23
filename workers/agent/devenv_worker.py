@@ -170,16 +170,23 @@ def build_prompt(task: dict, branch: str, attachments: list[str], att_dir: Path)
     )  # fmt: skip
 
 
-def agent_command(prompt: str) -> list[str]:
+CODEX_EFFORT = {"low": "low", "medium": "medium", "high": "high", "xhigh": "high", "max": "high"}
+
+
+def agent_command(prompt: str, model: str | None = None, effort: str = "") -> list[str]:
+    """The agent CLI call. `model` None or empty means the model from Settings (MODEL)."""
+    model = model or MODEL
     if PROVIDER == "claude":
         cmd = ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"]
         mcp = AGENT_CONFIG / "claude" / "mcp.json"
         if mcp.is_file():
             cmd += ["--mcp-config", str(mcp)]
-        return cmd + (["--model", MODEL] if MODEL else [])
+        return cmd + (["--model", model] if model else []) + (["--effort", effort] if effort else [])
     if PROVIDER == "codex":
         cmd = ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check"]
-        return cmd + (["--model", MODEL] if MODEL else []) + [prompt]
+        if effort in CODEX_EFFORT:
+            cmd += ["-c", f"model_reasoning_effort={CODEX_EFFORT[effort]}"]
+        return cmd + (["--model", model] if model else []) + [prompt]
     raise SystemExit(f"unknown provider {PROVIDER}")
 
 
@@ -202,9 +209,29 @@ def describe(line: str) -> str:
     return ""
 
 
-def run_agent(prompt: str, cwd: Path, rep: Reporter) -> tuple[int, str]:
-    rep.status = f"running {PROVIDER}"
-    proc = subprocess.Popen(agent_command(prompt), cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+MODEL_UNAVAILABLE = re.compile(
+    r"model.{0,80}(not found|not available|not supported|unsupported|does not exist|invalid|no access|not allowed)"
+    r"|(unknown|invalid|unsupported) model",
+    re.IGNORECASE,
+)
+
+
+def run_agent(prompt: str, cwd: Path, rep: Reporter, run_cfg: dict | None = None) -> tuple[int, str]:
+    """Run the agent with the task's model; if that model is not available here, run again with Settings' model."""
+    run_cfg = run_cfg or {}
+    model, effort = run_cfg.get("model") or "", run_cfg.get("effort") or ""
+    code, tail = _run_agent(agent_command(prompt, model, effort), cwd, rep, model or MODEL)
+    if code > 0 and model and model != MODEL and MODEL_UNAVAILABLE.search(tail):
+        rep.line(
+            f"{model} is not available to this agent; running again with the Settings model {MODEL or '(default)'}"
+        )
+        code, tail = _run_agent(agent_command(prompt, MODEL, effort), cwd, rep, MODEL)
+    return code, tail
+
+
+def _run_agent(cmd: list[str], cwd: Path, rep: Reporter, model: str) -> tuple[int, str]:
+    rep.status = f"running {PROVIDER}{' ' + model if model else ''}"
+    proc = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     last = []
     deadline = time.time() + TASK_TIMEOUT
     assert proc.stdout
@@ -266,7 +293,7 @@ def do_task(task: dict, interval: int) -> None:
         if task["repo"]:
             rep.status = f"cloning {task['repo']}"
             repo_dir, branch = prepare_repo(task, workdir)
-            code, tail = run_agent(build_prompt(task, branch, names, att_dir), repo_dir, rep)
+            code, tail = run_agent(build_prompt(task, branch, names, att_dir), repo_dir, rep, task.get("run"))
             if code < 0:
                 result = {"outcome": "failed", "error": tail}
             else:
@@ -275,7 +302,7 @@ def do_task(task: dict, interval: int) -> None:
                 if code != 0 and result["outcome"] == "pr":
                     rep.line(f"agent exited with {code} but a PR exists; reporting it")
         else:
-            code, tail = run_agent(build_prompt(task, "", names, att_dir), workdir, rep)
+            code, tail = run_agent(build_prompt(task, "", names, att_dir), workdir, rep, task.get("run"))
             result = (
                 {"outcome": "completed", "summary": tail}
                 if code == 0

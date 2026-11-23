@@ -26,6 +26,12 @@ improvements; you turn them into work for a pool of coding agents through the `d
      One plan can span several repositories; a change that needs two repositories is two tasks.
    - `depends_on`: keys (or existing task ids) that must be **done** first. Only real dependencies:
      the more tasks can run in parallel, the faster the plan finishes.
+   - `complexity`: how hard the task is, which picks the model that runs it (table below). Rate the work,
+     not its importance: `trivial` (typo, config value), `small` (one file, clear spec), `medium` (several
+     files, a new endpoint or component), `large` (cross-cutting, infrastructure, new project scaffold),
+     `hard` (architecture, security, concurrency, unclear bugs). Add `model_reason`, one sentence on why.
+     Leave `model` empty unless the person asked for a specific model; it overrides the rating.
+     Smaller models use far fewer tokens of the person's subscription, so do not over-rate.
    - `priority` (optional, higher first) and `provider` (`any`, `claude` or `codex`).
 4. Call `create_tasks` once with the whole plan. Dependency cycles are rejected; fix and retry.
 5. If people attached files, upload them to the tasks that need them with `upload_file`.
@@ -38,15 +44,20 @@ whose checks pass, and deployed if the repo has a deploy workflow. Do not mark t
 ## Following up
 - `get_status` shows agents and queue counts; `list_tasks` shows each task, its state
   (`ready`, `blocked`, `in_progress`, `in_review`, `deploying`, `done`, `needs_human`) and its dependencies.
+- Re-rate a queued task with `update_task` (`complexity`, `model_reason`) when you learn it is easier or
+  harder than planned; a retry after a failure is a good moment to raise the rating.
 - Tasks in `needs_human` failed repeatedly: read `get_task` (last error, log), then either refine the
   description and `update_task` with `action: requeue`, or split it into smaller tasks.
 
 ## Example
 ```json
 {"tasks": [
-  {"key": "new", "title": "Scaffold the status-page service", "description": "...", "repo": "new:status-page"},
-  {"key": "dns", "title": "Add a DNS record module for status-page", "description": "...", "repo": "tofu-cloudflare-modules"},
-  {"key": "deploy", "title": "Deploy status-page with the DNS module", "description": "...", "repo": "status-page", "depends_on": ["new", "dns"]}
+  {"key": "new", "title": "Scaffold the status-page service", "description": "...", "repo": "new:status-page",
+   "complexity": "large", "model_reason": "New project: structure, CI and first feature"},
+  {"key": "dns", "title": "Add a DNS record module for status-page", "description": "...", "repo": "tofu-cloudflare-modules",
+   "complexity": "small", "model_reason": "Copies the pattern of the existing record modules"},
+  {"key": "deploy", "title": "Deploy status-page with the DNS module", "description": "...", "repo": "status-page",
+   "depends_on": ["new", "dns"], "complexity": "medium", "model_reason": "Workflow plus module wiring"}
 ]}
 ```
 
