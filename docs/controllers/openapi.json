@@ -201,10 +201,31 @@
    },
    "GitHubSettings": {
     "properties": {
+     "allow_create_repos": {
+      "default": true,
+      "title": "Allow Create Repos",
+      "type": "boolean"
+     },
+     "allowed_repos": {
+      "description": "Empty: every repository of the owner",
+      "items": {
+       "type": "string"
+      },
+      "title": "Allowed Repos",
+      "type": "array"
+     },
      "auto_merge": {
       "default": true,
       "title": "Auto Merge",
       "type": "boolean"
+     },
+     "blocked_repos": {
+      "description": "Always wins over the allowed list",
+      "items": {
+       "type": "string"
+      },
+      "title": "Blocked Repos",
+      "type": "array"
      },
      "default_repo": {
       "default": "",
@@ -220,6 +241,18 @@
       "default": "AI Dev Agent",
       "title": "Git User Name",
       "type": "string"
+     },
+     "new_repo_suffix": {
+      "default": "",
+      "maxLength": 40,
+      "pattern": "^[A-Za-z0-9._-]*$",
+      "title": "New Repo Suffix",
+      "type": "string"
+     },
+     "new_repos_private": {
+      "default": true,
+      "title": "New Repos Private",
+      "type": "boolean"
      },
      "owner": {
       "default": "",
@@ -500,7 +533,7 @@
      },
      "repo": {
       "default": "",
-      "description": "owner/name; leave empty for tasks without code changes",
+      "description": "owner/name or name (an existing repository), new:name (create one for this task), or empty for the default repository (or no code changes when there is none)",
       "title": "Repo",
       "type": "string"
      },
@@ -1168,6 +1201,117 @@
     "summary": "Validate",
     "tags": [
      "plugins"
+    ]
+   }
+  },
+  "/api/repos": {
+   "get": {
+    "description": "Repositories agents may work on (the owner's, filtered by the allowed and blocked lists).",
+    "operationId": "list_repos_api_repos_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "include_archived",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Include Archived",
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "refresh",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Refresh",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Repos",
+    "tags": [
+     "repos"
+    ]
+   }
+  },
+  "/api/repos/{owner}/{name}/readme": {
+   "get": {
+    "operationId": "repo_readme_api_repos__owner___name__readme_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "owner",
+      "required": true,
+      "schema": {
+       "title": "Owner",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Repo Readme",
+    "tags": [
+     "repos"
     ]
    }
   },

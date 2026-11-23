@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from .. import queue
+from .. import queue, repos
 from ..auth import Principal, require
 from ..state import load_settings
 
@@ -26,7 +26,11 @@ class TaskIn(BaseModel):
     key: str | None = Field(None, description="Local reference other tasks in the same plan can depend on")
     title: str = Field(..., min_length=1, max_length=300)
     description: str = ""
-    repo: str = Field("", description="owner/name; leave empty for tasks without code changes")
+    repo: str = Field(
+        "",
+        description="owner/name or name (an existing repository), new:name (create one for this task), "
+        "or empty for the default repository (or no code changes when there is none)",
+    )
     base_branch: str = "main"
     priority: int = 0
     provider: str = Field("any", pattern="^(any|claude|codex)$")
@@ -52,18 +56,33 @@ class DepsIn(BaseModel):
     depends_on: list[int]
 
 
+def _repo(spec: str, s) -> str:
+    try:
+        return repos.normalize(spec, s.github)
+    except repos.RepoError as e:
+        raise HTTPException(400, str(e)) from None
+
+
 def _create(request: Request, plan: PlanIn, p: Principal) -> list[dict]:
     db = request.app.state.db
     s = load_settings(db)
-    default_repo = plan.default_repo or (f"{s.github.owner}/{s.github.default_repo}" if s.github.default_repo else "")
-    items = []
-    for t in plan.tasks:
-        d = t.model_dump()
-        if not d["repo"] and default_repo:
-            d["repo"] = default_repo
-        if d["repo"] and not re.fullmatch(r"[\w.-]+/[\w.-]+", d["repo"]):
-            raise HTTPException(400, f"repo must look like owner/name, got {d['repo']!r}")
-        items.append(d)
+    default_repo = plan.default_repo or repos.default_repo(s.github)
+    items = [t.model_dump() for t in plan.tasks]
+    for d in items:
+        d["repo"] = _repo(d["repo"] or default_repo, s)
+    # Later tasks of a plan may name a repository that an earlier task creates (`new:x`) by its plain name,
+    # without the configured suffix: point them at the repository that will exist.
+    created = {
+        r.removeprefix(repos.NEW_PREFIX).lower(): r.removeprefix(repos.NEW_PREFIX)
+        for r in (d["repo"] for d in items)
+        if r.startswith(repos.NEW_PREFIX)
+    }
+    for d, t in zip(items, plan.tasks, strict=True):
+        if d["repo"] and not d["repo"].startswith(repos.NEW_PREFIX):
+            owner, name = d["repo"].split("/", 1)
+            target = created.get(f"{owner}/{repos.new_name(name, s.github)}".lower())
+            if target and t.repo.strip():
+                d["repo"] = target
     ids = queue.create_tasks(db, items, f"{p.kind}:{p.name}", s.agents.max_attempts)
     return [queue.get_task(db, i) for i in ids]
 
@@ -119,6 +138,8 @@ def patch_task(task_id: int, body: TaskPatch, request: Request):
     db = request.app.state.db
     task = queue.get_task(db, task_id)
     fields = body.model_dump(exclude_none=True, exclude={"action"})
+    if "repo" in fields:
+        fields["repo"] = _repo(fields["repo"], load_settings(db))
     if fields:
         db.run(
             f"UPDATE tasks SET {', '.join(f'{k} = ?' for k in fields)}, updated_at = ? WHERE id = ?",

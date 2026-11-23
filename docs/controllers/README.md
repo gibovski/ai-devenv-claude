@@ -4,7 +4,9 @@ Either assistant can be the "controlling system": you give it project ideas, it 
 smallest practical tasks and queues them for the agents. Both use the same interfaces:
 
 * **MCP server** at `https://<your tunnel hostname>/mcp` (streamable HTTP). Tools: `get_planning_guide`,
-  `create_tasks`, `list_tasks`, `get_task`, `get_status`, `update_task`, `upload_file`.
+  `list_repos`, `get_repo_readme`, `create_tasks`, `list_tasks`, `get_task`, `get_status`, `update_task`,
+  `upload_file`. `list_repos` shows the repositories agents may work on, so the controller can put each task
+  in the right one, or plan a new repository (`repo: "new:<name>"`) for a new project.
 * **REST API** described by [openapi.json](openapi.json) (also served at `/openapi.json`, docs at `/docs`).
 * **Planning guide**: [planning-prompt.md](planning-prompt.md), also returned by `get_planning_guide`.
 

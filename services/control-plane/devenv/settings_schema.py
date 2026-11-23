@@ -24,6 +24,14 @@ class GitHubSettings(BaseModel):
     git_user_name: str = "AI Dev Agent"
     git_user_email: str = "agent@devenv.local"
     auto_merge: bool = True
+    # Agents may work on any repository of the owner unless these say otherwise. Shell-style patterns such
+    # as `infra-*` match a repo name of the owner, `someone/*` matches another account's repos.
+    allowed_repos: list[str] = Field(default_factory=list, description="Empty: every repository of the owner")
+    blocked_repos: list[str] = Field(default_factory=list, description="Always wins over the allowed list")
+    # Tasks with repo `new:<name>` get a fresh repository, created when an agent picks the task up.
+    allow_create_repos: bool = True
+    new_repo_suffix: str = Field("", pattern=r"^[A-Za-z0-9._-]*$", max_length=40)
+    new_repos_private: bool = True
 
 
 class CloudflareSettings(BaseModel):

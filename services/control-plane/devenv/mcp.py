@@ -25,7 +25,11 @@ TASK_SCHEMA = {
         "key": {"type": "string", "description": "Local id other tasks in this plan can depend on"},
         "title": {"type": "string"},
         "description": {"type": "string", "description": "What to change, acceptance criteria, how to test"},
-        "repo": {"type": "string", "description": "owner/name; omit for the default repo"},
+        "repo": {
+            "type": "string",
+            "description": "Existing repository as name or owner/name (see list_repos), new:name to create a "
+            "repository for this task, or omit for the default repository",
+        },
         "depends_on": {
             "type": "array",
             "items": {"type": ["string", "integer"]},
@@ -103,6 +107,23 @@ TOOLS = [
             },
             "required": ["task_id", "filename"],
         },
+    },
+    {
+        "name": "list_repos",
+        "description": "Repositories the agents may work on, with descriptions, languages and topics, plus the "
+        "rules for creating new ones. Use it to pick each task's repo; read get_repo_readme when unsure.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Filter by words in the name, description or topics"},
+                "include_archived": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "get_repo_readme",
+        "description": "The README of one repository (owner/name or name), to judge whether work belongs there.",
+        "inputSchema": {"type": "object", "properties": {"repo": {"type": "string"}}, "required": ["repo"]},
     },
     {
         "name": "get_planning_guide",
@@ -215,6 +236,25 @@ def call_tool(request: Request, p: auth.Principal, name: str, args: dict) -> dic
         (_dir(request, task_id) / str(aid)).write_bytes(data)
         queue.event(db, task_id, "log", f"{p.name} attached {fname} ({len(data)} bytes)")
         return _text({"attachment_id": aid, "filename": fname, "size": len(data)})
+    if name == "list_repos":
+        from .routes.repos import list_repos
+
+        return _text(
+            list_repos(request, q=args.get("query") or "", include_archived=bool(args.get("include_archived")))
+        )
+    if name == "get_repo_readme":
+        from .repos import RepoError, normalize
+        from .routes.repos import repo_readme
+        from .state import load_settings
+
+        try:
+            full = normalize(str(args.get("repo", "")), load_settings(db).github)
+        except RepoError as e:
+            raise HTTPException(400, str(e)) from None
+        if not full or full.startswith("new:"):
+            raise HTTPException(400, "Give an existing repository as owner/name or name")
+        owner, repo = full.split("/", 1)
+        return _text(repo_readme(owner, repo, request))
     if name == "get_planning_guide":
         return {"content": [{"type": "text", "text": planning_prompt()}]}
     raise KeyError(name)
@@ -238,7 +278,7 @@ def handle(request: Request, p: auth.Principal, msg: dict) -> dict | None:
                 "protocolVersion": want if want in PROTOCOL_VERSIONS else PROTOCOL_VERSIONS[0],
                 "capabilities": {"tools": {"listChanged": False}, "prompts": {"listChanged": False}},
                 "serverInfo": {"name": "devenv", "title": "AI Dev Environment queue", "version": __version__},
-                "instructions": "Use get_planning_guide, then create_tasks to queue work. get_status and list_tasks show progress.",
+                "instructions": "Use get_planning_guide and list_repos, then create_tasks to queue work. get_status and list_tasks show progress.",
             }
         )
     if method == "ping":
