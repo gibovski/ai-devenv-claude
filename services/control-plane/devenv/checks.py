@@ -56,6 +56,16 @@ def check_anthropic(key: str) -> dict:
     return {"ok": True, "detail": f"{len(ids)} models available", "models": ids}
 
 
+def check_claude_oauth_token(token: str) -> dict:
+    """Format check only: subscription tokens are used by Claude Code itself, not the public API."""
+    if not token.startswith("sk-ant-oat"):
+        return _fail("This does not look like a token from `claude setup-token` (it should start with sk-ant-oat)")
+    return {
+        "ok": True,
+        "detail": "Looks like a Claude subscription token. Agents share your plan's usage limits.",
+    }
+
+
 def check_cloudflare(token: str, account_id: str = "") -> dict:
     headers = {"Authorization": f"Bearer {token}"}
     urls = ["https://api.cloudflare.com/client/v4/user/tokens/verify"]

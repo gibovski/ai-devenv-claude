@@ -125,10 +125,11 @@ jobs:
         env:
           E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
           E2E_ANTHROPIC_API_KEY: ${{ secrets.E2E_ANTHROPIC_API_KEY }}
+          E2E_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.E2E_CLAUDE_CODE_OAUTH_TOKEN }}
           E2E_REPO: ${{ vars.E2E_REPO || 'gibovski/devenv-e2e-claude' }}
           WANT_E2E: ${{ matrix.arch == 'amd64' && (github.event_name == 'schedule' || inputs.e2e) }}
         run: |
-          if [ "$WANT_E2E" = true ] && [ -n "$E2E_GITHUB_TOKEN" ] && [ -n "$E2E_ANTHROPIC_API_KEY" ]; then
+          if [ "$WANT_E2E" = true ] && [ -n "$E2E_GITHUB_TOKEN" ] && [ -n "$E2E_CLAUDE_CODE_OAUTH_TOKEN$E2E_ANTHROPIC_API_KEY" ]; then
             export E2E_HOOK="$PWD/images/scripts/e2e-task.sh"
           else
             echo "::notice::End-to-end task test skipped (not requested or E2E_* secrets not set)"

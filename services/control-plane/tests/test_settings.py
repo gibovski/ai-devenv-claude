@@ -72,3 +72,10 @@ def test_apply_preview_and_run(admin, cfg):
     assert "replicas: 2" in cfg.override_path.read_text()
     assert (cfg.env_path.stat().st_mode & 0o777) == 0o600
     assert "ANTHROPIC_API_KEY=sk-ant-xyz" in cfg.env_path.read_text()
+
+
+def test_claude_oauth_token_check():
+    from devenv import checks
+
+    assert checks.check_claude_oauth_token("sk-ant-oat01-abc")["ok"]
+    assert not checks.check_claude_oauth_token("sk-ant-api03-abc")["ok"]

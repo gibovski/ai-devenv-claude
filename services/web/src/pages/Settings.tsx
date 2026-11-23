@@ -144,7 +144,15 @@ export default function Settings() {
         </label>
       </Section>
 
-      <Section title="Anthropic (Claude)">
+      <Section title="Claude">
+        <p className="hint">
+          Use your Claude Pro or Max subscription: run <code>claude setup-token</code> on any computer with Claude
+          Code installed and paste the token here. All Claude agents share your subscription's usage limits, so more
+          agents means you reach the limit sooner. An Anthropic API key is an optional pay-as-you-go alternative; if
+          both are set, agents use the API key.
+        </p>
+        {secret("claude_code_oauth_token")}
+        <CheckButton provider="claude" />
         {secret("anthropic_api_key")}
         <CheckButton provider="anthropic" />
       </Section>

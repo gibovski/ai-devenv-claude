@@ -51,3 +51,9 @@ tr.clickable:hover { background: var(--bg); }
 .summary b { display: block; font-size: 22px; }
 .deps { display: flex; gap: 4px; flex-wrap: wrap; }
 svg text { fill: var(--fg); }
+
+.hint {
+  color: var(--muted, #667);
+  font-size: 0.9em;
+  margin: 0 0 0.75rem;
+}

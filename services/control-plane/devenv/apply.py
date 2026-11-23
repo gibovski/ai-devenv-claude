@@ -19,6 +19,7 @@ SECRET_ENV = {
     "github_token": "GITHUB_TOKEN",
     "openai_api_key": "OPENAI_API_KEY",
     "anthropic_api_key": "ANTHROPIC_API_KEY",
+    "claude_code_oauth_token": "CLAUDE_CODE_OAUTH_TOKEN",
     "cloudflare_tunnel_token": "TUNNEL_TOKEN",
 }
 
