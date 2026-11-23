@@ -1,6 +1,6 @@
 [Unit]
 Description=AI Dev Environment first-boot setup
-After=local-fs.target
+After=local-fs.target cloud-init.service
 Before=devenv-stack.service ssh.service
 ConditionPathExists=!/var/lib/devenv/firstboot.done
 
