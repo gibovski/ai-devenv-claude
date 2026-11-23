@@ -51,7 +51,7 @@ jobs:
         run: |
           terraform fmt -check -recursive infra/terraform
           for d in $(find infra/terraform -name '*.tf' -exec dirname {} \; | sort -u); do
-            (cd "$d" && tflint --init && tflint)
+            (cd "$d" && tflint --init && tflint && terraform init -backend=false -input=false >/dev/null && terraform validate)
           done
   packer:
     runs-on: ubuntu-24.04

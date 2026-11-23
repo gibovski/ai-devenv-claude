@@ -84,6 +84,17 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - openhands-state:/.openhands
 
+  # Cloudflare Tunnel (outbound only) so remote controllers can reach the UI, API and MCP server.
+  cloudflared:
+    image: cloudflare/cloudflared:2025.11.1
+    profiles: [tunnel]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      - caddy
+
 volumes:
   control-plane-data:
   openhands-state:

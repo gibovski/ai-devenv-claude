@@ -118,6 +118,16 @@ build {
     destination = "/tmp/files"
   }
 
+  provisioner "file" {
+    source      = "${path.root}/../../infra/terraform/cloudflare"
+    destination = "/tmp/terraform-cloudflare"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/../../mcp"
+    destination = "/tmp/mcp"
+  }
+
   provisioner "shell" {
     execute_command = "sudo -E bash '{{ .Path }}'"
     environment_vars = [

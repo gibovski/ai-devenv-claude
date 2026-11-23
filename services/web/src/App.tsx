@@ -9,11 +9,15 @@ import Dashboard from "./pages/Dashboard";
 import Queue from "./pages/Queue";
 import Graph from "./pages/Graph";
 import TaskDetail from "./pages/TaskDetail";
+import Controllers from "./pages/Controllers";
+import Plugins from "./pages/Plugins";
 
 export const NAV: { to: string; label: string }[] = [
   { to: "/dashboard", label: "Agents" },
   { to: "/queue", label: "Queue" },
   { to: "/graph", label: "Graph" },
+  { to: "/controllers", label: "Controllers" },
+  { to: "/plugins", label: "Plugins" },
   { to: "/settings", label: "Settings" },
   { to: "/apply", label: "Apply" },
 ];
@@ -59,6 +63,8 @@ export default function App() {
           <Route path="/queue" element={<Queue />} />
           <Route path="/graph" element={<Graph />} />
           <Route path="/tasks/:id" element={<TaskDetail />} />
+          <Route path="/controllers" element={<Controllers />} />
+          <Route path="/plugins" element={<Plugins />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/apply" element={<Apply />} />
           <Route path="/password" element={<ChangePassword onDone={refresh} />} />
