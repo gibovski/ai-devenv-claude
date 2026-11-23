@@ -18,6 +18,7 @@ from .settings_schema import Settings
 SECRET_ENV = {
     "github_token": "GITHUB_TOKEN",
     "openai_api_key": "OPENAI_API_KEY",
+    "codex_auth_json": "CODEX_AUTH_JSON",
     "anthropic_api_key": "ANTHROPIC_API_KEY",
     "claude_code_oauth_token": "CLAUDE_CODE_OAUTH_TOKEN",
     "cloudflare_tunnel_token": "TUNNEL_TOKEN",
@@ -232,6 +233,13 @@ class ApplyEngine:
         with self._lock:
             try:
                 (self.cfg.state_dir / "agent-config").mkdir(mode=0o755, exist_ok=True)
+                # Shared, refreshable ChatGPT sign-in for the Codex agents (uid 1000 = the agent user).
+                codex_auth = self.cfg.state_dir / "codex-auth"
+                codex_auth.mkdir(mode=0o700, exist_ok=True)
+                try:
+                    os.chown(codex_auth, 1000, 1000)
+                except PermissionError:
+                    pass
                 self.cfg.override_path.write_text(override)
                 fd = os.open(self.cfg.env_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
                 with os.fdopen(fd, "w") as f:

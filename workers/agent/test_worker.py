@@ -62,3 +62,31 @@ def test_agent_commands():
 
 def test_slug():
     assert w.slug("Fix the Login Page!") == "fix-the-login-page"
+
+
+def test_codex_auth_is_seeded_shared_and_refreshed(tmp_path, monkeypatch):
+    shared, home = tmp_path / "shared", tmp_path / "home"
+    shared.mkdir()
+    monkeypatch.setattr(w, "SHARED_AUTH", shared)
+    monkeypatch.setattr(w, "PROVIDER", "codex")
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    pasted = '{"tokens":{"refresh_token":"r1"}}'
+    monkeypatch.setenv("CODEX_AUTH_JSON", pasted)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-x")
+
+    w.login()
+    assert "OPENAI_API_KEY" not in os.environ  # the subscription wins
+    assert (shared / "auth.json").read_text() == pasted
+    assert oct((shared / "auth.json").stat().st_mode & 0o777) == "0o600"
+
+    before = w.pull_codex_auth()
+    assert (home / "auth.json").read_text() == pasted
+    (home / "auth.json").write_text('{"tokens":{"refresh_token":"r2"}}')  # Codex refreshed it
+    w.push_codex_auth(before)
+    assert "r2" in (shared / "auth.json").read_text()
+
+    w.seed_codex_auth()  # same pasted value on restart: keep the refreshed tokens
+    assert "r2" in (shared / "auth.json").read_text()
+    monkeypatch.setenv("CODEX_AUTH_JSON", '{"tokens":{"refresh_token":"r3"}}')
+    w.seed_codex_auth()  # a newly pasted sign-in replaces it
+    assert "r3" in (shared / "auth.json").read_text()

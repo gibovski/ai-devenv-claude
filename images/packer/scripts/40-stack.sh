@@ -9,6 +9,7 @@ install -d -m 0755 /opt/devenv/terraform /opt/devenv/mcp
 cp -r /tmp/terraform-cloudflare /opt/devenv/terraform/cloudflare
 cp -r /tmp/mcp/. /opt/devenv/mcp/
 install -d -m 0700 /var/lib/devenv
+install -d -m 0700 -o 1000 -g 1000 /var/lib/devenv/codex-auth  # shared ChatGPT sign-in for Codex agents (empty)
 echo "${DEVENV_VERSION:-dev}" > /opt/devenv/VERSION
 echo "${DEVENV_ARCH:-unknown}" > /opt/devenv/ARCH
 

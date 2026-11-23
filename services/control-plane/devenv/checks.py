@@ -40,6 +40,32 @@ def check_openai(key: str) -> dict:
     return {"ok": True, "detail": f"{len(ids)} models available", "models": ids}
 
 
+def check_codex_auth(text: str) -> dict:
+    """Check that a pasted Codex auth.json holds a ChatGPT sign-in (format only; tokens refresh in the agents)."""
+    import base64
+    import json
+
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return _fail("Not JSON: paste the whole auth.json file")
+    tokens = data.get("tokens") or {}
+    if not tokens.get("refresh_token"):
+        if data.get("OPENAI_API_KEY"):
+            return _fail("This auth.json holds an API key, not a ChatGPT sign-in; run `codex login` and choose ChatGPT")
+        return _fail("No ChatGPT sign-in in this file; run `codex login` first")
+    who, plan = "", ""
+    try:
+        payload = tokens.get("id_token", "").split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+        who = claims.get("email", "")
+        plan = (claims.get("https://api.openai.com/auth") or {}).get("chatgpt_plan_type", "")
+    except (IndexError, ValueError):
+        pass
+    detail = "ChatGPT sign-in" + (f" for {who}" if who else "") + (f" ({plan} plan)" if plan else "")
+    return {"ok": True, "detail": detail + ". Codex agents share your plan's usage limits."}
+
+
 def check_anthropic(key: str) -> dict:
     try:
         r = httpx.get(

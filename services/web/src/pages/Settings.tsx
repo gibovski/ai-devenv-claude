@@ -163,7 +163,15 @@ export default function Settings() {
         <CheckButton provider="anthropic" value={pending.anthropic_api_key} />
       </Section>
 
-      <Section title="OpenAI">
+      <Section title="Codex (OpenAI)">
+        <p className="hint">
+          Use your ChatGPT Plus, Pro or Business subscription: run <code>codex login</code> on any computer (it opens a browser to
+          sign in), then paste the whole contents of the <code>auth.json</code> file it creates (on Windows:{" "}
+          <code>%USERPROFILE%\.codex\auth.json</code>). All Codex agents share the sign-in and your plan's usage limits, and keep
+          it refreshed. An OpenAI API key is an optional pay-as-you-go alternative; if both are set, agents use the ChatGPT sign-in.
+        </p>
+        {secret("codex_auth_json")}
+        <CheckButton provider="codex" value={pending.codex_auth_json} />
         {secret("openai_api_key")}
         <CheckButton provider="openai" value={pending.openai_api_key} />
       </Section>

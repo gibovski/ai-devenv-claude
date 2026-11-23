@@ -9,7 +9,8 @@ from .catalogue.loader import default_model
 # Names of secrets the UI can set. They are write-only: the API reports only whether each is set.
 SECRET_FIELDS = {
     "github_token": "GitHub personal access token (repo, workflow scopes)",
-    "openai_api_key": "OpenAI API key",
+    "codex_auth_json": "ChatGPT sign-in for Codex (Plus/Pro/Business: paste the whole auth.json from `codex login`)",
+    "openai_api_key": "OpenAI API key (optional, pay-as-you-go alternative)",
     "claude_code_oauth_token": "Claude subscription token (Pro/Max, from `claude setup-token`)",
     "anthropic_api_key": "Anthropic API key (optional, pay-as-you-go alternative)",
     "cloudflare_api_token": "Cloudflare API token",

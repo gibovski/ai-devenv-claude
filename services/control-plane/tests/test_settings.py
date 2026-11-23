@@ -99,3 +99,27 @@ def test_check_uses_typed_value_without_saving(admin):
     assert not admin.get("/api/secrets").json()["claude_code_oauth_token"]["set"]
     r = admin.post("/api/settings/check/claude").json()
     assert not r["ok"] and "paste a value" in r["detail"]
+
+
+def test_codex_chatgpt_signin(admin):
+    import base64
+    import json
+
+    claims = (
+        base64.urlsafe_b64encode(
+            json.dumps(
+                {"email": "me@example.com", "https://api.openai.com/auth": {"chatgpt_plan_type": "plus"}}
+            ).encode()
+        )
+        .decode()
+        .rstrip("=")
+    )
+    auth = json.dumps({"tokens": {"id_token": f"h.{claims}.s", "access_token": "a", "refresh_token": "r"}}, indent=2)
+    r = admin.post("/api/settings/check/codex", json={"value": auth}).json()
+    assert r["ok"] and "me@example.com" in r["detail"] and "plus" in r["detail"]
+    assert not admin.post("/api/settings/check/codex", json={"value": '{"OPENAI_API_KEY":"sk"}'}).json()["ok"]
+    assert admin.put("/api/secrets", json={"values": {"codex_auth_json": "not json"}}).status_code == 400
+    assert admin.put("/api/secrets", json={"values": {"codex_auth_json": auth}}).status_code == 200
+    stored = admin.app.state.secrets.get("codex_auth_json") if hasattr(admin, "app") else None
+    if stored is not None:
+        assert "\n" not in stored
