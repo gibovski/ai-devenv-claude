@@ -60,13 +60,39 @@ On the **Settings** page:
 
 | Section | What to enter |
 |---|---|
-| GitHub | A personal access token with `repo` and `workflow` scopes, the owner and a default repository. Keep *auto merge* on so the definition of done (merged to main) can be reached without you. |
+| GitHub | A personal access token with `repo` and `workflow` scopes, and the owner (your GitHub user name). A default repository is optional. Keep *auto merge* on so the definition of done (merged to main) can be reached without you. Then choose which repositories agents may use (below). |
 | Claude | Your Claude Pro/Max subscription token (run `claude setup-token` on a computer with Claude Code and paste the result), or an Anthropic API key. Then the number of Claude agents and the model (Opus 5.5 is the default). All agents share your subscription's usage limits. |
 | Codex (OpenAI) | Your ChatGPT subscription sign-in (see below), or an OpenAI API key. Then the number of Codex agents and the model. |
 | Cloudflare | API token, account id, zone, hostname and the emails allowed through Cloudflare Access. See [tunnels.md](tunnels.md). |
 
 Use **Test connection** next to each credential, then **Apply**. Apply shows the change it will make, then starts or
 stops agent containers to match.
+
+### Which repositories the agents work on
+
+Agents are not tied to one repository. Every task names where its change goes:
+
+- an existing repository, as `my-app` (under the owner you set) or `someone/their-app`;
+- `new:my-new-app` for a new project. The repository is created when an agent starts the task: private
+  (untick *Make new repositories private* for public ones), with a README, under the owner. If you set a
+  *suffix*, for example `-ai`, it becomes `my-new-app-ai`;
+- nothing, which uses the default repository if you set one (otherwise the task is research with no code).
+
+When you give Claude (Baz) or ChatGPT an idea, they look at the list of your repositories with their
+descriptions and pick the right one for each task, or plan a new repository. Good descriptions on your
+repositories help them choose. In **Settings → GitHub → Repositories agents may use**:
+
+1. **Blocked repositories**: names agents must never touch, comma-separated, for example
+   `ai-devenv, private-*`. Blocked always wins.
+2. **Allowed repositories**: leave empty to allow all of yours, or list the only ones agents may use, for
+   example `infra-*, tofu-*, my-app`.
+3. **Agents may create new repositories**: on by default. Turn it off to keep agents to existing ones.
+4. **Save settings**. No Apply is needed; the queue checks these rules when tasks are added and again when
+   an agent starts one.
+
+Your token can create repositories when it is a *classic* token with the `repo` scope. A *fine-grained*
+token needs **All repositories** plus *Administration: Read and write* (and *Contents*, *Pull requests*,
+*Workflows: Read and write*).
 
 ### Using your ChatGPT subscription for Codex (no API key)
 

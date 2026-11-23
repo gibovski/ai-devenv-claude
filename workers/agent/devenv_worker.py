@@ -156,6 +156,11 @@ def build_prompt(task: dict, branch: str, attachments: list[str], att_dir: Path)
     prev = ""
     if task.get("last_error"):
         prev = f"- A previous attempt did not finish: {task['last_error']}. Continue from the existing branch and fix that."
+    if task.get("new_repo"):
+        prev += (
+            "\n- This repository was just created for this task and holds only a README. Set up the project: a clear"
+            " README, a .gitignore, tests, and a GitHub Actions workflow that runs them on pull requests."
+        )
     if task.get("pr_url"):
         prev += f"\n- The existing pull request is {task['pr_url']}; push fixes to it rather than opening a new one."
     template = (HERE / ("prompt.md" if task["repo"] else "prompt-norepo.md")).read_text()

@@ -50,8 +50,8 @@ function NewTask({ onCreated, tasks }: { onCreated: () => void; tasks: Task[] })
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
       </label>
       <label>
-        Repository (owner/name, blank for the default repo)
-        <input value={repo} onChange={(e) => setRepo(e.target.value)} />
+        Repository: name or owner/name, new:name to create one, blank for the default
+        <input value={repo} placeholder="my-app, me/my-app or new:my-new-app" onChange={(e) => setRepo(e.target.value)} />
       </label>
       <label>
         Depends on

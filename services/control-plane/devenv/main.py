@@ -14,6 +14,7 @@ from .routes import agents as agent_routes
 from .routes import auth as auth_routes
 from .routes import controllers as controller_routes
 from .routes import plugins as plugin_routes
+from .routes import repos as repo_routes
 from .routes import settings as settings_routes
 from .routes import tasks as task_routes
 from .routes import workers as worker_routes
@@ -75,6 +76,7 @@ def create_app(cfg: Config | None = None, background: bool = True) -> FastAPI:
         task_routes,
         controller_routes,
         plugin_routes,
+        repo_routes,
         mcp,
     ):
         app.include_router(r.router)

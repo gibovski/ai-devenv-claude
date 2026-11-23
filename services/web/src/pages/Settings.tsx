@@ -132,8 +132,12 @@ export default function Settings() {
             <input value={s.github.owner} onChange={(e) => set((d) => void (d.github.owner = e.target.value))} />
           </label>
           <label>
-            Default repository
-            <input value={s.github.default_repo} onChange={(e) => set((d) => void (d.github.default_repo = e.target.value))} />
+            Default repository (optional)
+            <input
+              value={s.github.default_repo}
+              placeholder="used when a task names no repository"
+              onChange={(e) => set((d) => void (d.github.default_repo = e.target.value))}
+            />
           </label>
           <label>
             Commit author name
@@ -148,6 +152,50 @@ export default function Settings() {
           <input type="checkbox" checked={s.github.auto_merge} onChange={(e) => set((d) => void (d.github.auto_merge = e.target.checked))} />
           Auto-merge agent PRs when checks pass
         </label>
+        <h3>Repositories agents may use</h3>
+        <p className="hint">
+          Each task names its repository: an existing one (<code>name</code> or <code>owner/name</code>) or{" "}
+          <code>new:name</code> for a new project. Controllers see the list of your repositories when they plan work.
+          Lists are comma-separated; <code>*</code> works as a wildcard, for example <code>infra-*</code>.
+        </p>
+        <div className="grid2">
+          <label>
+            Allowed repositories (empty: all of the owner's)
+            <ListInput value={s.github.allowed_repos} placeholder="all" onChange={(v) => set((d) => void (d.github.allowed_repos = v))} />
+          </label>
+          <label>
+            Blocked repositories (always wins)
+            <ListInput value={s.github.blocked_repos} placeholder="none" onChange={(v) => set((d) => void (d.github.blocked_repos = v))} />
+          </label>
+        </div>
+        <label className="inline">
+          <input
+            type="checkbox"
+            checked={s.github.allow_create_repos}
+            onChange={(e) => set((d) => void (d.github.allow_create_repos = e.target.checked))}
+          />
+          Agents may create new repositories for new projects
+        </label>
+        {s.github.allow_create_repos && (
+          <div className="grid2">
+            <label>
+              Suffix added to new repository names (optional)
+              <input
+                value={s.github.new_repo_suffix}
+                placeholder="for example -ai"
+                onChange={(e) => set((d) => void (d.github.new_repo_suffix = e.target.value.trim()))}
+              />
+            </label>
+            <label className="inline">
+              <input
+                type="checkbox"
+                checked={s.github.new_repos_private}
+                onChange={(e) => set((d) => void (d.github.new_repos_private = e.target.checked))}
+              />
+              Make new repositories private
+            </label>
+          </div>
+        )}
       </Section>
 
       <Section title="Claude">
@@ -302,5 +350,24 @@ export default function Settings() {
         {msg && <span>{msg}</span>}
       </div>
     </div>
+  );
+}
+
+function ListInput({ value, placeholder, onChange }: { value: string[]; placeholder?: string; onChange: (v: string[]) => void }) {
+  // Keep the typed text so a trailing comma or space is not swallowed while typing.
+  const [text, setText] = useState(value.join(", "));
+  useEffect(() => {
+    if (text.split(",").map((x) => x.trim()).filter(Boolean).join(",") !== value.join(",")) setText(value.join(", "));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  return (
+    <input
+      value={text}
+      placeholder={placeholder}
+      onChange={(e) => {
+        setText(e.target.value);
+        onChange(e.target.value.split(",").map((x) => x.trim()).filter(Boolean));
+      }}
+    />
   );
 }
