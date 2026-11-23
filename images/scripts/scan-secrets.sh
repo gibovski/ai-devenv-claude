@@ -16,7 +16,11 @@ sudo modprobe nbd max_part=8
 sudo qemu-nbd -r -c /dev/nbd0 "$img"
 for _ in $(seq 1 20); do [ -e /dev/nbd0p1 ] && break; sleep 0.5; done
 sudo partprobe /dev/nbd0 2>/dev/null || true
-root=$(lsblk -nrpo NAME,FSTYPE /dev/nbd0 | awk '$2=="ext4"{print $1; exit}')
+# lsblk often reports no FSTYPE for nbd devices (no udev probe), so ask blkid directly.
+root=""
+for p in /dev/nbd0p*; do
+  if [ "$(sudo blkid -o value -s TYPE "$p" 2>/dev/null)" = ext4 ]; then root=$p; break; fi
+done
 [ -n "$root" ] || { echo "no ext4 root partition found"; lsblk /dev/nbd0; exit 1; }
 sudo mount -o ro,noload "$root" "$mnt"
 fail=0

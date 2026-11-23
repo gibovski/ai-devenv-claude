@@ -164,7 +164,7 @@ jobs:
   # already-scanned image. They never reach the build job or any published file.
   e2e:
     needs: [prepare, build]
-    if: (github.event_name == 'schedule' || inputs.e2e) && contains(needs.prepare.outputs.arches, 'amd64') && !cancelled()
+    if: (github.event_name == 'schedule' || inputs.e2e) && contains(needs.prepare.outputs.arches, 'amd64') && needs.build.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
