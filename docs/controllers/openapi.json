@@ -125,6 +125,17 @@
       "title": "Mode",
       "type": "string"
      },
+     "stable_enabled": {
+      "default": false,
+      "title": "Stable Enabled",
+      "type": "boolean"
+     },
+     "stable_name": {
+      "default": "",
+      "pattern": "^$|^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$",
+      "title": "Stable Name",
+      "type": "string"
+     },
      "tunnel_enabled": {
       "default": false,
       "title": "Tunnel Enabled",

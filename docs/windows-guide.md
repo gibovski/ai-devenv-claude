@@ -90,7 +90,9 @@ deploy workflow, that workflow succeeded on the merge commit.
 
 Turn on the tunnel in Settings (Remote access) and press Apply. With **Quick tunnel** you need no
 Cloudflare account or domain: the Controllers page shows a random `https://…trycloudflare.com` address that
-changes when the tunnel restarts. With your own domain the UI is at `https://<hostname>/` behind Cloudflare
+changes when the tunnel restarts. For an address that never changes, tick **Give it a fixed address on
+workers.dev**: with a free Cloudflare account it becomes `https://<worker-name>.<your-subdomain>.workers.dev`
+(steps in [tunnels.md](tunnels.md#fixed-address-for-the-quick-tunnel-free-workersdev-no-domain)). With your own domain the UI is at `https://<hostname>/` behind Cloudflare
 Access. Controllers use `<address>/mcp/t/<token>`.
 
 ## Updating

@@ -35,6 +35,10 @@ class CloudflareSettings(BaseModel):
     tunnel_enabled: bool = False
     manage_with_terraform: bool = True
     access_emails: list[str] = Field(default_factory=list)
+    # Quick tunnel only: a fixed https://<stable_name>.<your-subdomain>.workers.dev address that follows the
+    # changing trycloudflare.com one (uses the API token and account ID above; free Workers plan).
+    stable_enabled: bool = False
+    stable_name: str = Field("", pattern=r"^$|^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
 
 
 class AgentPool(BaseModel):

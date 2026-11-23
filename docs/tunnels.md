@@ -8,6 +8,38 @@ shown on the Controllers page (and as the base of the MCP URL). The address chan
 restarts, and there is no Cloudflare Access in front of it: the admin password protects the UI and the
 per-controller tokens protect `/mcp` and the API. Good for trying things out and for friends without a domain.
 
+### Fixed address for the quick tunnel (free workers.dev, no domain)
+
+Tick **Give it a fixed address on workers.dev** under the quick tunnel. The VM then deploys a small
+Cloudflare Worker named after the *Worker name* setting (default `devenv-` plus 6 random characters, made on
+first use, so every install gets its own) to your free workers.dev subdomain:
+
+    https://<worker-name>.<your-subdomain>.workers.dev
+
+The Worker forwards every request (including the MCP endpoint) to the current `trycloudflare.com` address.
+The VM checks that address every 30 seconds and redeploys the Worker when it changes, so the workers.dev
+address never changes. The Controllers page shows it, and controllers should use it.
+
+What you need (free Cloudflare account, no domain, no card):
+
+1. Sign up at dash.cloudflare.com. Open **Workers & Pages** once and accept the workers.dev subdomain it
+   offers (for example `gibbo`). That is the `<your-subdomain>` part.
+2. My Profile → API Tokens → *Create Token* → *Create Custom Token*. Permissions: **Account → Workers
+   Scripts → Edit**. Account resources: your account. Create it and copy it.
+3. Copy your **Account ID** (Workers & Pages overview, right-hand side, or the URL after `dash.cloudflare.com/`).
+4. In Settings → Remote access: Quick tunnel, tick the workers.dev option, paste the token and Account ID,
+   optionally choose a Worker name, **Save settings**, then **Apply**. The address appears under the option
+   within a minute.
+
+The token lives only in the VM's encrypted secret store (never in the image). The app's own admin login and
+controller tokens still protect everything behind the address.
+
+**Optional: Cloudflare Access in front of it.** Cloudflare's free Zero Trust plan (up to 50 users) can put a
+login in front of a workers.dev address: Workers & Pages → your Worker → Settings → Domains & Routes →
+workers.dev → *Enable Cloudflare Access*, then edit the policy to allow your email. Cloud assistants such as
+Claude and ChatGPT can't get through Access, so leave it off if they need to reach `/mcp`. The raw
+`trycloudflare.com` address is not behind Access either way.
+
 ## Option 2: your own domain (named tunnel with Cloudflare Access)
 
 The VM makes an **outbound** Cloudflare Tunnel connection, so nothing on your network is opened.
