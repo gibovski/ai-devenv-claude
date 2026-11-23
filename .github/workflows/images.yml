@@ -121,20 +121,20 @@ jobs:
           packer build -color=false -var arch="$ARCH" -var accelerator=${{ steps.accel.outputs.accel }} \
             -var version="$TAG" -var cpus=4 .
           rm -rf images-cache/*.tar
-      - name: Smoke test (and end-to-end task test when configured)
+      - name: Check the image holds no credentials or per-VM state
+        # Images are shared with other people: credentials are only ever entered in the settings UI.
         env:
-          E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
-          E2E_ANTHROPIC_API_KEY: ${{ secrets.E2E_ANTHROPIC_API_KEY }}
-          E2E_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.E2E_CLAUDE_CODE_OAUTH_TOKEN }}
-          E2E_REPO: ${{ vars.E2E_REPO || 'gibovski/devenv-e2e-claude' }}
-          WANT_E2E: ${{ matrix.arch == 'amd64' && (github.event_name == 'schedule' || inputs.e2e) }}
-        run: |
-          if [ "$WANT_E2E" = true ] && [ -n "$E2E_GITHUB_TOKEN" ] && [ -n "$E2E_CLAUDE_CODE_OAUTH_TOKEN$E2E_ANTHROPIC_API_KEY" ]; then
-            export E2E_HOOK="$PWD/images/scripts/e2e-task.sh"
-          else
-            echo "::notice::End-to-end task test skipped (not requested or E2E_* secrets not set)"
-          fi
-          images/scripts/smoke-test.sh "images/packer/output-$ARCH/devenv-$TAG-$ARCH.qcow2" "$ARCH"
+          SCAN_VALUES: |
+            ${{ github.token }}
+            ${{ secrets.E2E_GITHUB_TOKEN }}
+            ${{ secrets.E2E_ANTHROPIC_API_KEY }}
+            ${{ secrets.E2E_CLAUDE_CODE_OAUTH_TOKEN }}
+            ${{ secrets.CLOUDFLARE_API_TOKEN }}
+            ${{ secrets.OPENAI_API_KEY }}
+        run: images/scripts/scan-secrets.sh "images/packer/output-$ARCH/devenv-$TAG-$ARCH.qcow2"
+      - name: Smoke test
+        # Boots a throwaway overlay; the image file itself is never written to.
+        run: images/scripts/smoke-test.sh "images/packer/output-$ARCH/devenv-$TAG-$ARCH.qcow2" "$ARCH"
       - name: Convert formats
         run: |
           out=dist base="devenv-$TAG-$ARCH"
@@ -151,6 +151,57 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$TAG" dist/* -R "$GITHUB_REPOSITORY" --clobber
+      - name: Keep the amd64 image for the end-to-end test
+        if: matrix.arch == 'amd64' && (github.event_name == 'schedule' || inputs.e2e)
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-image
+          path: dist/devenv-*-amd64.qcow2*
+          retention-days: 1
+          compression-level: 0
+
+  # Test-only credentials live here, in a job that boots a throwaway copy of the already-built,
+  # already-scanned image. They never reach the build job or any published file.
+  e2e:
+    needs: [prepare, build]
+    if: (github.event_name == 'schedule' || inputs.e2e) && contains(needs.prepare.outputs.arches, 'amd64') && !cancelled()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+      E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
+      E2E_ANTHROPIC_API_KEY: ${{ secrets.E2E_ANTHROPIC_API_KEY }}
+      E2E_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.E2E_CLAUDE_CODE_OAUTH_TOKEN }}
+      E2E_REPO: ${{ vars.E2E_REPO || 'gibovski/devenv-e2e-claude' }}
+    steps:
+      - name: Check test credentials
+        id: creds
+        run: |
+          if [ -n "$E2E_GITHUB_TOKEN" ] && [ -n "$E2E_CLAUDE_CODE_OAUTH_TOKEN$E2E_ANTHROPIC_API_KEY" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::End-to-end task test skipped: set E2E_GITHUB_TOKEN and E2E_CLAUDE_CODE_OAUTH_TOKEN"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.creds.outputs.ok == 'true'
+      - uses: actions/download-artifact@v4
+        if: steps.creds.outputs.ok == 'true'
+        with:
+          name: e2e-image
+          path: e2e
+      - name: Install QEMU
+        if: steps.creds.outputs.ok == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf cloud-image-utils jq
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Boot the image and run a task to a merged PR
+        if: steps.creds.outputs.ok == 'true'
+        run: |
+          img="e2e/devenv-$TAG-amd64.qcow2"
+          [ -f "$img" ] || cat "$img".part* > "$img"
+          E2E_HOOK="$PWD/images/scripts/e2e-task.sh" images/scripts/smoke-test.sh "$img" amd64
 
   publish:
     needs: [prepare, build]

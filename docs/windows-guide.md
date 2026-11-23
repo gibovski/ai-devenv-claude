@@ -68,6 +68,14 @@ On the **Settings** page:
 Use **Check** next to each credential, then **Apply**. Apply shows the change it will make, then starts or
 stops agent containers to match.
 
+### Sharing the VM with friends
+
+The published images contain no credentials and no per-machine keys. Every VM creates its own encryption
+key, admin password and SSH host keys on first boot, and every account (GitHub, Claude, OpenAI, Cloudflare)
+is entered by whoever runs it, here in Settings. Each image build checks this and fails if it finds any
+credential, key or saved state in the image. Credentials are stored encrypted on the VM's disk, so share the
+download link or a fresh image, not a VM you have already set up.
+
 ## 5. Give the agents work
 
 - **Queue** page: add tasks by hand, import a YAML/JSON/TSV plan, set dependencies, attach files.
