@@ -1,0 +1,81 @@
+M0	Repo foundation
+0.1	Create repo with README, licence, editorconfig, CODEOWNERS	
+0.2	Monorepo layout and ADR-001 architecture decision record	0.1
+0.3	CI lint workflow: shellcheck, hadolint, ruff, eslint, tflint, packer fmt	0.2
+0.4	Issue and PR templates with definition-of-done checklist, labels, milestones	0.1
+0.5	Branch protection on main with required checks, as code	0.3
+M1	Daily image pipeline (amd64 + arm64)
+1.1	Packer QEMU template from Ubuntu 24.04 cloud image, amd64	0.2
+1.2	arm64 variant with UEFI firmware	1.1
+1.3	Provisioner: full upgrade, base packages, Docker Engine and Compose	1.1
+1.4	Dev tooling layer: git, gh, Node, Python, uv, build tools	1.3
+1.5	Format conversion: VHDX, qcow2, OVA, compressed raw	1.1
+1.6	GitHub Actions build matrix on native amd64 and arm64 runners	1.2,1.5
+1.7	Daily schedule, manual trigger, date-based version tags	1.6
+1.8	CI boot smoke test: boot image, wait for cloud-init, health check	1.6
+1.9	Publish to GitHub Releases with checksums and SBOM, keep last 7	1.8
+1.10	Asset size guard: split files over the 2 GB release limit	1.9
+M2	First boot and Docker stack
+2.1	cloud-init config and seed ISO generator (user, SSH keys, hostname)	1.3
+2.2	Compose stack skeleton: control plane, web UI, Caddy proxy	0.2
+2.3	systemd unit that starts the stack on boot	2.2,1.3
+2.4	Bake and pre-pull the stack images into the VM image	2.3,1.6
+2.5	Headless first boot: console and SSH banner print the settings URL and one-time admin password	2.3
+2.6	Host access: devenv.local via mDNS, port and network docs	2.3
+M3	Settings UI and apply engine
+3.1	FastAPI service skeleton with SQLite, migrations, health endpoint	0.2
+3.2	Encrypted secrets store; secrets never sent back to the browser	3.1
+3.3	Settings schema: GitHub, OpenAI, Anthropic, Cloudflare, agent counts, models	3.1
+3.4	Model catalogue file with token-usage tier, very high to low	3.3
+3.5	Settings API with live credential checks	3.2,3.3
+3.6	React web app skeleton behind Caddy with admin login	2.2
+3.7	Settings page: credential forms, agent counts, model dropdowns with usage hints	3.4,3.5,3.6
+3.8	Apply engine: settings to compose override, then compose up	3.5
+3.9	Apply flow in UI: preview the change, apply, live progress log	3.7,3.8
+M4	Agents and status dashboard
+4.1	Worker base image: non-root, git, gh, workspace volume	0.2
+4.2	Claude Code worker running headless with chosen model	4.1
+4.3	OpenAI Codex worker running headless with chosen model	4.1
+4.4	Worker protocol: register, heartbeat, claim, report	3.1
+4.5	Supervisor scales N workers per provider from settings	3.8,4.2,4.3
+4.6	Agent status API: idle, busy, offline, error, current task	4.4
+4.7	Live dashboard page of all agents	4.6,3.6
+4.8	Optional OpenHands compose profile	3.8
+M5	Work queue with dependencies and uploads
+5.1	Task model: title, description, repo, priority, status, dependencies	3.1
+5.2	Dependency validation with cycle detection	5.1
+5.3	Scheduler: task ready only when all dependencies are done; leases and requeue	5.2,4.4
+5.4	Task API with bulk create from a plan file	5.2
+5.5	File attachment upload API and storage	5.4
+5.6	Attachments copied into the agent workspace when a task is allocated	5.5,5.3,4.1
+5.7	Queue page: description, status, dependencies and their status	5.4,3.6
+5.8	Dependency graph view of the queue	5.7
+5.9	Task detail page with uploads and agent log	5.7,5.5
+M6	Definition of done
+6.1	Agent task prompt that enforces branch, commit, push, PR	4.2,4.3
+6.2	Done check: commit pushed and PR merged into main, via GitHub API	5.3
+6.3	Deploy-if-relevant hook per repo, run and verified	6.2
+6.4	Auto-merge policy when checks pass	6.2
+6.5	Failure handling: retry, then needs-human status	6.2
+M7	Controller interface for Claude and ChatGPT
+7.1	OpenAPI spec for queue, uploads and agent status	5.4,4.6
+7.2	Remote MCP server: create_tasks, list_tasks, get_status, upload_file	7.1
+7.3	Per-controller tokens for Claude and ChatGPT	7.2
+7.4	Shared planning prompt: break an idea into smallest tasks with dependencies	7.2
+7.5	Connect Claude (Baz) and run an end-to-end planning test	7.3,8.3
+7.6	Connect ChatGPT and run the same test	7.3,8.3
+M8	Tunnels
+8.1	Terraform module: Cloudflare Tunnel and DNS records, token from a GitHub secret	0.2
+8.2	Cloudflare Access policies and service tokens for Baz	8.1
+8.3	cloudflared container in the stack, token from settings	8.1,3.8
+8.4	Apply tunnel changes from the settings UI	8.3,3.9
+M9	Plugins and MCP as code
+9.1	mcp.yaml schema for MCP servers and plugins per agent type	3.3
+9.2	Render to Claude Code and Codex config files	9.1,4.2,4.3
+9.3	Watch for changes, re-render, restart idle workers	9.2,4.5
+9.4	Plugins page in the UI	9.1,3.6
+M10	Windows deployment and end-to-end test
+10.1	PowerShell script: download latest amd64 VHDX, verify, create Hyper-V Gen2 VM with networking	1.9
+10.2	VirtualBox import script as the fallback	1.9
+10.3	End-to-end test: boot, configure, queue a task, agent merges a PR	7.5,6.2,2.4
+10.4	User guide for Windows setup and daily use	10.1
