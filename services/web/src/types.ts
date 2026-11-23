@@ -8,3 +8,47 @@ export type SecretStatus = Record<string, { label: string; set: boolean; updated
 export type Model = { id: string; label: string; usage: string; note?: string; price?: { input: number; output: number } };
 export type Catalogue = { anthropic: Model[]; openai: Model[]; usage_tiers: Record<string, string> };
 export type Check = { ok: boolean; detail: string };
+export type Agent = {
+  id: string;
+  provider: string;
+  model: string;
+  status: string;
+  message: string;
+  last_heartbeat_seconds: number;
+  current_task: { id: number; title: string; repo: string } | null;
+  tasks_done: number;
+  tasks_failed: number;
+};
+export type AgentStatus = {
+  agents: Agent[];
+  summary: Record<string, number>;
+  desired: Record<string, number>;
+  online: Record<string, number>;
+  queue: Record<string, number>;
+};
+export type DepRef = { id: number; title: string; status: string };
+export type Task = {
+  id: number;
+  title: string;
+  description: string;
+  repo: string;
+  base_branch: string;
+  priority: number;
+  provider: string;
+  status: string;
+  state: string;
+  worker_id: string | null;
+  attempts: number;
+  max_attempts: number;
+  branch: string;
+  pr_url: string;
+  deploy_status: string;
+  last_error: string;
+  created_at: string;
+  updated_at: string;
+  deps: DepRef[];
+  dependents?: DepRef[];
+  attachments: number | Attachment[];
+};
+export type Attachment = { id: number; filename: string; size: number; sha256: string; created_at: string };
+export type TaskEvent = { id: number; at: string; kind: string; worker_id: string | null; message: string };

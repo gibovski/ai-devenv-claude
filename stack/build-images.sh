@@ -6,16 +6,12 @@ platform=$1 out=$2 tag=${3:-latest}
 root=$(cd "$(dirname "$0")/.." && pwd)
 registry=ghcr.io/gibovski/ai-devenv-claude
 mkdir -p "$out"
-# name:context pairs; workers are added as they exist.
-images=(control-plane:services/control-plane web:services/web)
-for extra in worker-base:workers/base worker-claude:workers/claude worker-codex:workers/codex; do
-  [ -f "$root/${extra#*:}/Dockerfile" ] && images+=("$extra")
-done
+# name:context:target (target may be empty)
+images=(control-plane:services/control-plane: web:services/web: worker-claude:workers:claude worker-codex:workers:codex)
 for item in "${images[@]}"; do
-  name=${item%%:*} ctx=${item#*:}
+  IFS=: read -r name ctx target <<<"$item"
   echo "== $name ($platform)"
-  docker buildx build --builder default --platform "$platform" --load \
-    --build-arg "REGISTRY=$registry" --build-arg "TAG=latest" \
+  docker buildx build --builder default --platform "$platform" --load ${target:+--target "$target"} \
     -t "$registry/$name:latest" -t "$registry/$name:$tag" "$root/$ctx"
 done
 refs=()
