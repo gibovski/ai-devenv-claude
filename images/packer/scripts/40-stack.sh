@@ -2,7 +2,8 @@
 # Install the Docker Compose stack, the first-boot service and the stack service.
 set -euxo pipefail
 
-install -d -m 0755 /opt/devenv /tmp/stack-images
+install -d -m 0755 /opt/devenv
+install -d -m 1777 /tmp/stack-images  # the next file provisioner uploads here as the build user
 cp -r /tmp/stack/. /opt/devenv/
 install -d -m 0755 /opt/devenv/terraform /opt/devenv/mcp
 cp -r /tmp/terraform-cloudflare /opt/devenv/terraform/cloudflare
