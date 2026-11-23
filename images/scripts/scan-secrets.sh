@@ -16,13 +16,17 @@ sudo modprobe nbd max_part=8
 sudo qemu-nbd -r -c /dev/nbd0 "$img"
 for _ in $(seq 1 20); do [ -e /dev/nbd0p1 ] && break; sleep 0.5; done
 sudo partprobe /dev/nbd0 2>/dev/null || true
-# lsblk often reports no FSTYPE for nbd devices (no udev probe), so ask blkid directly.
+# Partition type detection is unreliable on nbd devices (no udev probe), so try to mount each
+# partition as ext4 and keep the one that holds an OS.
 root=""
 for p in /dev/nbd0p*; do
-  if [ "$(sudo blkid -o value -s TYPE "$p" 2>/dev/null)" = ext4 ]; then root=$p; break; fi
+  if sudo mount -o ro,noload -t ext4 "$p" "$mnt" 2>/dev/null; then
+    if sudo test -f "$mnt/etc/os-release"; then root=$p; break; fi
+    sudo umount "$mnt"
+  fi
 done
-[ -n "$root" ] || { echo "no ext4 root partition found"; lsblk /dev/nbd0; exit 1; }
-sudo mount -o ro,noload "$root" "$mnt"
+[ -n "$root" ] || { echo "no root filesystem found"; lsblk /dev/nbd0; sudo blkid -p /dev/nbd0p* || true; exit 1; }
+echo "scanning $root"
 fail=0
 
 echo "== per-VM state that must be created on first boot"
