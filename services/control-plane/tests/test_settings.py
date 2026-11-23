@@ -79,3 +79,14 @@ def test_claude_oauth_token_check():
 
     assert checks.check_claude_oauth_token("sk-ant-oat01-abc")["ok"]
     assert not checks.check_claude_oauth_token("sk-ant-api03-abc")["ok"]
+
+
+def test_apply_never_recreates_control_plane(cfg):
+    from devenv.apply import managed_commands
+
+    cmds = managed_commands(cfg, {"COMPOSE_PROFILES": "quicktunnel"})
+    up = cmds[0]
+    assert "--no-deps" in up
+    assert "control-plane" not in up and "caddy" not in up
+    assert "cloudflared-quick" in up and "cloudflared" not in up
+    assert cmds[1][-3:] == ["--force", "openhands", "cloudflared"]
