@@ -27,6 +27,8 @@ class CloudflareSettings(BaseModel):
     zone: str = ""
     hostname: str = ""
     tunnel_enabled: bool = False
+    manage_with_terraform: bool = True
+    access_emails: list[str] = Field(default_factory=list)
 
 
 class AgentPool(BaseModel):

@@ -4,6 +4,9 @@ set -euxo pipefail
 
 install -d -m 0755 /opt/devenv /tmp/stack-images
 cp -r /tmp/stack/. /opt/devenv/
+install -d -m 0755 /opt/devenv/terraform /opt/devenv/mcp
+cp -r /tmp/terraform-cloudflare /opt/devenv/terraform/cloudflare
+cp -r /tmp/mcp/. /opt/devenv/mcp/
 install -d -m 0700 /var/lib/devenv
 echo "${DEVENV_VERSION:-dev}" > /opt/devenv/VERSION
 echo "${DEVENV_ARCH:-unknown}" > /opt/devenv/ARCH

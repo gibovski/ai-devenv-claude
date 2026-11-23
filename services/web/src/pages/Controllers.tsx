@@ -1,0 +1,89 @@
+import { useState } from "react";
+import { api } from "../api";
+import { usePoll } from "../usePoll";
+
+type Row = { name: string; created_at: string; last_used_at: string | null; revoked: number };
+type Created = { name: string; token: string; mcp_url: string; mcp_url_with_token: string; openapi_url: string };
+
+export default function Controllers() {
+  const { data, reload } = usePoll<{ controllers: Row[]; urls: { local: string; public: string } }>("/api/controllers", 0);
+  const [name, setName] = useState("claude");
+  const [created, setCreated] = useState<Created>();
+  const [msg, setMsg] = useState("");
+  const create = async () => {
+    try {
+      setCreated(await api<Created>("/api/controllers", { method: "POST", json: { name } }));
+      setMsg("");
+      reload();
+    } catch (e) {
+      setMsg((e as Error).message);
+    }
+  };
+  const revoke = async (n: string) => {
+    await api(`/api/controllers/${n}`, { method: "DELETE" });
+    reload();
+  };
+  const base = data?.urls.public || data?.urls.local || "";
+  return (
+    <div className="stack">
+      <h1>Controllers</h1>
+      <p className="muted">
+        A controller (Claude or ChatGPT) turns your ideas into queued tasks through the MCP server or the REST API. Each controller gets its own token.
+        {!data?.urls.public && " Set a Cloudflare hostname and enable the tunnel so cloud-hosted controllers can reach this VM."}
+      </p>
+      <section className="card">
+        <h2>Connection details</h2>
+        <table>
+          <tbody>
+            <tr><th>MCP server</th><td><code>{base}/mcp</code></td></tr>
+            <tr><th>OpenAPI</th><td><a href="/openapi.json">{base}/openapi.json</a> · <a href="/docs">interactive docs</a></td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section className="card">
+        <h2>New token</h2>
+        <div className="actions">
+          <select value={name} onChange={(e) => setName(e.target.value)}>
+            <option value="claude">claude</option>
+            <option value="chatgpt">chatgpt</option>
+            <option value="script">script</option>
+          </select>
+          <button onClick={create}>Create token</button>
+          {msg && <span className="error">{msg}</span>}
+        </div>
+        {created && (
+          <div>
+            <p><b>Copy these now; the token is not shown again.</b></p>
+            <table>
+              <tbody>
+                <tr><th>Token</th><td><code>{created.token}</code></td></tr>
+                <tr><th>MCP URL (header auth)</th><td><code>{created.mcp_url}</code> with <code>Authorization: Bearer {created.token}</code></td></tr>
+                <tr><th>MCP URL (token in URL)</th><td><code>{created.mcp_url_with_token}</code></td></tr>
+              </tbody>
+            </table>
+            <p className="muted small">
+              Claude: Settings → Connectors → Add custom connector → paste the URL with the token. ChatGPT: Settings → Connectors (developer mode) → Create → paste
+              the same URL. Claude Code: <code>claude mcp add --transport http devenv {created.mcp_url} --header "Authorization: Bearer …"</code>.
+            </p>
+          </div>
+        )}
+      </section>
+      <section className="card">
+        <h2>Tokens</h2>
+        <table>
+          <thead><tr><th>Name</th><th>Created</th><th>Last used</th><th /></tr></thead>
+          <tbody>
+            {data?.controllers.map((c) => (
+              <tr key={c.name + c.created_at}>
+                <td>{c.name}</td>
+                <td>{c.created_at}</td>
+                <td>{c.last_used_at ?? "never"}</td>
+                <td>{c.revoked ? <span className="badge">revoked</span> : <button className="link" onClick={() => revoke(c.name)}>Revoke</button>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  );
+}

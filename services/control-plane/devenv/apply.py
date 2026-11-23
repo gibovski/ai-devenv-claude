@@ -1,6 +1,7 @@
 """Apply engine: render settings into compose.override.yaml + stack.env, then `docker compose up`."""
 
 import difflib
+import json
 import os
 import shlex
 import subprocess
@@ -111,17 +112,83 @@ def compose_cmd(cfg: Config, *args: str) -> list[str]:
     return cmd + list(args)
 
 
+def tunnel_wanted(settings: Settings, secrets: SecretStore) -> bool:
+    cf = settings.cloudflare
+    return bool(
+        cf.tunnel_enabled
+        and cf.manage_with_terraform
+        and secrets.get("cloudflare_api_token")
+        and cf.account_id
+        and cf.zone
+        and cf.hostname
+    )
+
+
 class ApplyEngine:
     def __init__(self, cfg: Config, db: Database, secrets: SecretStore):
         self.cfg, self.db, self.secrets = cfg, db, secrets
         self._lock = threading.Lock()
 
     def start(self, settings: Settings) -> int:
-        override, env = render(settings, self.secrets, ensure_worker_token(self.db, self.secrets))
         run_id = self.db.run("INSERT INTO apply_runs(status) VALUES ('running')").lastrowid
-        thread = threading.Thread(target=self._run, args=(run_id, override, env), daemon=True)
+        thread = threading.Thread(target=self._run_all, args=(run_id, settings), daemon=True)
         thread.start()
         return run_id
+
+    def _run_all(self, run_id: int, settings: Settings) -> None:
+        if (
+            tunnel_wanted(settings, self.secrets)
+            and (self.cfg.stack_dir / "terraform" / "cloudflare" / "tf.sh").exists()
+        ):
+            if not self._terraform(run_id, settings):
+                self._finish(run_id, "failed")
+                return
+        override, env = render(settings, self.secrets, ensure_worker_token(self.db, self.secrets))
+        self._run(run_id, override, env)
+
+    def _terraform(self, run_id: int, settings: Settings) -> bool:
+        """Create/update the Cloudflare tunnel, DNS and Access with Terraform, then store the tunnel token."""
+        tf_dir = self.cfg.stack_dir / "terraform" / "cloudflare"
+        cf = settings.cloudflare
+        env = {
+            **os.environ,
+            "CLOUDFLARE_API_TOKEN": self.secrets.get("cloudflare_api_token") or "",
+            "TF_VAR_account_id": cf.account_id,
+            "TF_VAR_zone": cf.zone,
+            "TF_VAR_hostname": cf.hostname,
+            "TF_VAR_allowed_emails": json.dumps(cf.access_emails),
+            "TF_DATA_DIR": str(self.cfg.state_dir / "terraform"),
+            "TF_IN_AUTOMATION": "1",
+            "CHECKPOINT_DISABLE": "1",
+        }
+        self._log(run_id, f"== Terraform: Cloudflare tunnel for {cf.hostname}\n")
+        for args in (["apply", "-no-color"], ["output", "-no-color", "-raw", "tunnel_token"]):
+            proc = subprocess.run(
+                [str(tf_dir / "tf.sh"), *args], cwd=tf_dir, env=env, capture_output=True, text=True, timeout=900
+            )
+            if args[0] == "output":
+                if proc.returncode != 0 or not proc.stdout.strip():
+                    self._log(run_id, f"Could not read tunnel token: {proc.stderr[-2000:]}\n")
+                    return False
+                self.secrets.set("cloudflare_tunnel_token", proc.stdout.strip())
+                self._log(run_id, "Stored the tunnel token.\n")
+                tokens = subprocess.run(
+                    [str(tf_dir / "tf.sh"), "output", "-no-color", "-json", "service_tokens"],
+                    cwd=tf_dir,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
+                if tokens.returncode == 0 and tokens.stdout.strip():
+                    self.secrets.set("cloudflare_access_service_tokens", tokens.stdout.strip())
+                    self._log(run_id, "Stored the Access service tokens for controllers.\n")
+                continue
+            self._log(run_id, proc.stdout[-8000:] + proc.stderr[-4000:])
+            if proc.returncode != 0:
+                self._log(run_id, "Terraform failed.\n")
+                return False
+        return True
 
     def _log(self, run_id: int, text: str) -> None:
         self.db.run("UPDATE apply_runs SET log = log || ? WHERE id = ?", text, run_id)

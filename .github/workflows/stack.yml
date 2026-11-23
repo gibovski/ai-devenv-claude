@@ -16,6 +16,13 @@ jobs:
       - name: control plane tests
         working-directory: services/control-plane
         run: uv run --frozen pytest -q && uv run --frozen pytest -q ../../workers/agent
+      - name: OpenAPI document is up to date
+        working-directory: services/control-plane
+        run: |
+          uv run --frozen python -m devenv.openapi > /tmp/openapi.json
+          diff -u ../../docs/controllers/openapi.json /tmp/openapi.json || { echo "::error::Run: cd services/control-plane && uv run python -m devenv.openapi > ../../docs/controllers/openapi.json"; exit 1; }
+      - name: Planning prompt copy is in sync
+        run: diff -u docs/controllers/planning-prompt.md services/control-plane/devenv/planning_prompt.md
       - uses: actions/setup-node@v4
         with:
           node-version: 22

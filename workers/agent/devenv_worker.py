@@ -101,7 +101,7 @@ class Reporter:
 
 def apply_agent_config() -> None:
     """Copy rendered MCP/plugin config (from the control plane) into the agent's home directory."""
-    src = AGENT_CONFIG / PROVIDER
+    src = AGENT_CONFIG / PROVIDER / "home"
     if not src.is_dir():
         return
     home = Path.home()
@@ -162,6 +162,9 @@ def build_prompt(task: dict, branch: str, attachments: list[str], att_dir: Path)
 def agent_command(prompt: str) -> list[str]:
     if PROVIDER == "claude":
         cmd = ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"]
+        mcp = AGENT_CONFIG / "claude" / "mcp.json"
+        if mcp.is_file():
+            cmd += ["--mcp-config", str(mcp)]
         return cmd + (["--model", MODEL] if MODEL else [])
     if PROVIDER == "codex":
         cmd = ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check"]
@@ -306,6 +309,7 @@ def main() -> None:
             log(f"waiting for control plane: {e}")
             time.sleep(5)
     interval = reg["heartbeat_seconds"]
+    config_version = reg.get("config_version", 0)
     log(f"registered as {WORKER_ID} ({MODEL or 'default model'})")
     idle_since = 0.0
     while True:
@@ -325,7 +329,13 @@ def main() -> None:
             continue
         if time.time() - idle_since > interval:
             try:
-                call("POST", f"/api/workers/{WORKER_ID}/heartbeat", {"state": "idle", "message": "waiting for work"})
+                hb = call(
+                    "POST", f"/api/workers/{WORKER_ID}/heartbeat", {"state": "idle", "message": "waiting for work"}
+                )
+                if hb and hb.get("config_version", config_version) != config_version:
+                    # MCP/plugin config changed: exit so Docker restarts us with a clean agent process.
+                    log("agent config changed; restarting")
+                    sys.exit(0)
             except Exception as e:  # noqa: BLE001
                 log(f"heartbeat failed: {e}")
             idle_since = time.time()

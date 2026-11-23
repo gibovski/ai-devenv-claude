@@ -157,8 +157,6 @@ export default function Settings() {
       <Section title="Cloudflare">
         {secret("cloudflare_api_token")}
         <CheckButton provider="cloudflare" />
-        {secret("cloudflare_tunnel_token")}
-        <CheckButton provider="tunnel" />
         <div className="grid2">
           <label>
             Account ID
@@ -172,7 +170,24 @@ export default function Settings() {
             Hostname
             <input value={s.cloudflare.hostname} placeholder="devenv.example.com" onChange={(e) => set((d) => void (d.cloudflare.hostname = e.target.value))} />
           </label>
+          <label>
+            People allowed through Cloudflare Access (emails, comma separated)
+            <input
+              value={s.cloudflare.access_emails.join(", ")}
+              onChange={(e) => set((d) => void (d.cloudflare.access_emails = e.target.value.split(",").map((x) => x.trim()).filter(Boolean)))}
+            />
+          </label>
         </div>
+        <label className="inline">
+          <input type="checkbox" checked={s.cloudflare.manage_with_terraform} onChange={(e) => set((d) => void (d.cloudflare.manage_with_terraform = e.target.checked))} />
+          Create the tunnel, DNS record and Access policies with Terraform on Apply (needs the API token above)
+        </label>
+        {!s.cloudflare.manage_with_terraform && (
+          <>
+            {secret("cloudflare_tunnel_token")}
+            <CheckButton provider="tunnel" />
+          </>
+        )}
         <label className="inline">
           <input type="checkbox" checked={s.cloudflare.tunnel_enabled} onChange={(e) => set((d) => void (d.cloudflare.tunnel_enabled = e.target.checked))} />
           Run the Cloudflare Tunnel so remote controllers (Claude, ChatGPT) can reach this environment

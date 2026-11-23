@@ -1,0 +1,37 @@
+# MCP servers and plugins for the coding agents, as code.
+# The control plane validates this file, renders it into each agent's own config format
+# (Claude Code: --mcp-config JSON + settings.json plugins; Codex: ~/.codex/config.toml),
+# and restarts idle agents whenever it changes. Edit here (or on the Plugins page) and save.
+#
+# ${VAR} references are resolved from the agent's environment at runtime, so secrets stay out of this file.
+version: 1
+
+servers:
+  github:
+    description: GitHub issues, PRs and code search
+    type: http
+    url: https://api.githubcopilot.com/mcp/
+    bearer_token_env: GITHUB_TOKEN
+    agents: [claude, codex]
+
+  context7:
+    description: Up-to-date library documentation
+    type: stdio
+    command: npx
+    args: ["-y", "@upstash/context7-mcp@1.0.20"]
+    agents: [claude, codex]
+
+  playwright:
+    description: Browser automation for UI testing
+    type: stdio
+    command: npx
+    args: ["-y", "@playwright/mcp@0.0.41", "--headless", "--isolated"]
+    agents: [claude]
+    enabled: false
+
+plugins:
+  claude:
+    marketplaces:
+      claude-plugins-official:
+        github: anthropics/claude-plugins-official
+    enabled: []

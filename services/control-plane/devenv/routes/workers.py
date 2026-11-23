@@ -93,8 +93,10 @@ def heartbeat(worker_id: str, body: HeartbeatIn, request: Request):
     lease_ok = True
     if body.task_id:
         lease_ok = queue.extend_lease(db, body.task_id, worker_id, cfg.lease_seconds)
-    # Tell the worker to stop if its task was cancelled or reassigned.
-    return {"ok": True, "continue": lease_ok}
+    # Tell the worker to stop if its task was cancelled or reassigned, and which agent config is current.
+    from ..state import kv_get
+
+    return {"ok": True, "continue": lease_ok, "config_version": kv_get(db, "agent_config_version", 0)}
 
 
 @router.post("/{worker_id}/claim")
