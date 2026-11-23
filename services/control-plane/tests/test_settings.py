@@ -90,3 +90,12 @@ def test_apply_never_recreates_control_plane(cfg):
     assert "control-plane" not in up and "caddy" not in up
     assert "cloudflared-quick" in up and "cloudflared" not in up
     assert cmds[1][-3:] == ["--force", "openhands", "cloudflared"]
+
+
+def test_check_uses_typed_value_without_saving(admin):
+    # Nothing stored yet: the typed value is tested, and it is not saved.
+    r = admin.post("/api/settings/check/claude", json={"value": " sk-ant-oat01-typed "}).json()
+    assert r["ok"]
+    assert not admin.get("/api/secrets").json()["claude_code_oauth_token"]["set"]
+    r = admin.post("/api/settings/check/claude").json()
+    assert not r["ok"] and "paste a value" in r["detail"]
