@@ -3,9 +3,9 @@
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from .. import repos
+from .. import inbox, repos
 from ..auth import require
-from ..state import load_settings
+from ..state import kv_get, load_settings
 
 router = APIRouter(prefix="/api", tags=["repos"], dependencies=[Depends(require("admin", "controller"))])
 
@@ -62,3 +62,29 @@ def repo_readme(owner: str, name: str, request: Request):
     except httpx.HTTPError as e:
         raise HTTPException(502, f"GitHub: {e}") from None
     return {"repo": full, "readme": text}
+
+
+@router.get("/inbox")
+def inbox_status(request: Request):
+    """The GitHub control repository: where controllers open issues, and how the last sync went."""
+    s = load_settings(request.app.state.db).github
+    status = kv_get(request.app.state.db, "inbox_status", {}) or {}
+    repo = inbox.control_repo(s)
+    return {
+        "enabled": s.inbox_enabled,
+        "repo": repo,
+        "label": s.inbox_label,
+        "url": f"https://github.com/{repo}/issues" if repo else "",
+        "last": status,
+    }
+
+
+@router.post("/inbox/sync", dependencies=[Depends(require("admin"))])
+def inbox_sync(request: Request):
+    app = request.app.state
+    s = load_settings(app.db).github
+    if not s.inbox_enabled:
+        raise HTTPException(409, "Turn on the GitHub inbox in Settings first")
+    _token(request)
+    inbox.sync(app.db, app.secrets, app.cfg.github_api, app.cfg.uploads_dir)
+    return inbox_status(request)

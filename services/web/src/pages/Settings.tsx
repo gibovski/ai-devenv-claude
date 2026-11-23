@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
-import type { Catalogue, Check, Model, SecretStatus, SettingsT } from "../types";
+import type { Catalogue, Check, InboxStatus, Model, SecretStatus, SettingsT } from "../types";
 import { getDraft, setDraft } from "../settingsDraft";
 
 const USAGE_BADGE: Record<string, string> = { "very-high": "●●●●", high: "●●●○", medium: "●●○○", low: "●○○○" };
@@ -170,6 +170,36 @@ export default function Settings() {
           <input type="checkbox" checked={s.github.auto_merge} onChange={(e) => set((d) => void (d.github.auto_merge = e.target.checked))} />
           Auto-merge agent PRs when checks pass
         </label>
+        <h3>GitHub inbox for controllers</h3>
+        <p className="hint">
+          Controllers that can't reach this VM (for example Claude in a cloud session) plan work by opening issues labelled{" "}
+          <code>{s.github.inbox_label}</code> in a private control repository. The VM checks it every 30 seconds, queues new issues
+          as tasks, comments with progress and pull request links, and closes each issue when its task is done. It needs no
+          tunnel. Only issues from you and your collaborators are accepted.
+        </p>
+        <label className="inline">
+          <input
+            type="checkbox"
+            checked={s.github.inbox_enabled}
+            onChange={(e) => set((d) => void (d.github.inbox_enabled = e.target.checked))}
+          />
+          Take tasks from GitHub issues
+        </label>
+        {s.github.inbox_enabled && (
+          <>
+            <div className="grid2">
+              <label>
+                Control repository (created for you if it doesn't exist)
+                <input value={s.github.inbox_repo} onChange={(e) => set((d) => void (d.github.inbox_repo = e.target.value.trim()))} />
+              </label>
+              <label>
+                Label
+                <input value={s.github.inbox_label} onChange={(e) => set((d) => void (d.github.inbox_label = e.target.value))} />
+              </label>
+            </div>
+            <InboxState />
+          </>
+        )}
         <h3>Repositories agents may use</h3>
         <p className="hint">
           Each task names its repository: an existing one (<code>name</code> or <code>owner/name</code>) or{" "}
@@ -415,5 +445,40 @@ function ListInput({ value, placeholder, onChange }: { value: string[]; placehol
         onChange(e.target.value.split(",").map((x) => x.trim()).filter(Boolean));
       }}
     />
+  );
+}
+
+function InboxState() {
+  const [st, setSt] = useState<InboxStatus>();
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    api<InboxStatus>("/api/inbox").then(setSt).catch(() => undefined);
+  }, []);
+  const sync = async () => {
+    setBusy(true);
+    try {
+      setSt(await api<InboxStatus>("/api/inbox/sync", { method: "POST" }));
+    } catch (e) {
+      setSt((x) => x && { ...x, last: { error: (e as Error).message } });
+    }
+    setBusy(false);
+  };
+  if (!st?.enabled) return <p className="muted small">Save settings to start checking the control repository.</p>;
+  return (
+    <p className="small">
+      {st.url && (
+        <a href={st.url} target="_blank" rel="noreferrer">
+          {st.repo} issues
+        </a>
+      )}
+      {st.last.error ? (
+        <span className="error"> · {st.last.error}</span>
+      ) : (
+        st.last.open !== undefined && <span className="muted"> · {st.last.open} open, {st.last.imported} queued in the last check</span>
+      )}{" "}
+      <button className="link" onClick={sync} disabled={busy}>
+        {busy ? "Checking…" : "Check now"}
+      </button>
+    </p>
   );
 }

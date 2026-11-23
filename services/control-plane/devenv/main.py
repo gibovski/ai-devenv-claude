@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from . import __version__, auth, done, mcp, mcpconfig, openapi, queue, stable
+from . import __version__, auth, done, inbox, mcp, mcpconfig, openapi, queue, stable
 from .apply import ApplyEngine, reconcile_workers
 from .background import Loop
 from .config import Config, load
@@ -36,6 +36,7 @@ def create_app(cfg: Config | None = None, background: bool = True) -> FastAPI:
     loop.add("mcp-config", watcher.check, every=10)
     loop.add("leases", lambda: queue.expire_leases(db), every=15)
     loop.add("stable-address", lambda: stable.sync(db, secrets), every=30)
+    loop.add("inbox", lambda: inbox.sync(db, secrets, cfg.github_api, cfg.uploads_dir), every=30)
     loop.add("done", lambda: done.check_all(db, secrets.get("github_token"), cfg.github_api), every=30)
 
     def supervise():
