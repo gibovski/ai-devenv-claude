@@ -25,7 +25,23 @@ systemctl enable ssh-keygen-devenv.service
 apt-get -y autoremove --purge
 apt-get clean
 rm -rf /var/lib/apt/lists/* /tmp/*
-cloud-init clean --logs --seed
+# The build left cloud-init's netplan bound to the build NIC's MAC address. With the seed gone, nothing
+# regenerates it on Hyper-V (eth0, another MAC), so the VM came up with no address. Use DHCP on any
+# Ethernet NIC instead.
+cloud-init clean --logs --seed --configs network
+rm -f /etc/netplan/50-cloud-init.yaml
+install -m 600 /dev/stdin /etc/netplan/01-devenv-dhcp.yaml <<'NETPLAN'
+network:
+  version: 2
+  ethernets:
+    any-ethernet:
+      match:
+        name: "e*"
+      dhcp4: true
+      dhcp6: true
+      dhcp-identifier: mac
+      optional: true
+NETPLAN
 truncate -s 0 /etc/machine-id
 rm -f /var/lib/dbus/machine-id
 journalctl --rotate || true

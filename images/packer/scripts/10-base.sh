@@ -17,6 +17,8 @@ apt-get install -y --no-install-recommends \
 # Hyper-V integration services (KVP, VSS) and guest agents for other hypervisors.
 systemctl enable qemu-guest-agent || true
 systemctl enable hv-kvp-daemon.service 2>/dev/null || true
+systemctl enable hv-fcopy-daemon.service 2>/dev/null || true  # Copy-VMFile
+systemctl enable hv-vss-daemon.service 2>/dev/null || true
 
 # Hostname devenv, reachable as devenv.local via mDNS.
 hostnamectl set-hostname devenv || echo devenv > /etc/hostname
