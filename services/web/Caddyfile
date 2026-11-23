@@ -1,0 +1,19 @@
+{
+	auto_https off
+	admin off
+}
+
+:80 {
+	encode zstd gzip
+	@backend path /api/* /mcp /mcp/* /docs /docs/* /openapi.json
+	handle @backend {
+		reverse_proxy control-plane:8000 {
+			flush_interval -1
+		}
+	}
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

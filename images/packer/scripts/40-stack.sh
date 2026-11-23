@@ -2,7 +2,7 @@
 # Install the Docker Compose stack, the first-boot service and the stack service.
 set -euxo pipefail
 
-install -d -m 0755 /opt/devenv
+install -d -m 0755 /opt/devenv /tmp/stack-images
 cp -r /tmp/stack/. /opt/devenv/
 install -d -m 0700 /var/lib/devenv
 echo "${DEVENV_VERSION:-dev}" > /opt/devenv/VERSION

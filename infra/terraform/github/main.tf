@@ -28,7 +28,7 @@ variable "repository" {
 
 variable "required_checks" {
   type    = list(string)
-  default = ["shell", "docker", "python", "web", "terraform", "packer"]
+  default = ["shell", "docker", "python", "web", "terraform", "packer", "test"]
 }
 
 resource "github_branch_protection" "main" {

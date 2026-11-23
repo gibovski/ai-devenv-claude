@@ -1,0 +1,32 @@
+# AI Dev Environment stack. Started at boot by devenv-stack.service (bin/stack-up).
+# The control plane's apply engine adds /var/lib/devenv/compose.override.yaml and
+# /var/lib/devenv/stack.env (interpolation values, root-only) from the settings UI.
+name: devenv
+
+services:
+  caddy:
+    image: ghcr.io/gibovski/ai-devenv-claude/web:${DEVENV_IMAGE_TAG:-latest}
+    pull_policy: missing
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - control-plane
+
+  control-plane:
+    image: ghcr.io/gibovski/ai-devenv-claude/control-plane:${DEVENV_IMAGE_TAG:-latest}
+    pull_policy: missing
+    restart: unless-stopped
+    environment:
+      DEVENV_DATA: /data
+      DEVENV_STATE: /var/lib/devenv
+      DEVENV_STACK: /opt/devenv
+      DEVENV_MCP_FILE: /opt/devenv/mcp/mcp.yaml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/devenv:/opt/devenv
+      - /var/lib/devenv:/var/lib/devenv
+      - control-plane-data:/data
+
+volumes:
+  control-plane-data:

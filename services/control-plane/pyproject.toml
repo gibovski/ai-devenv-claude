@@ -1,0 +1,27 @@
+[project]
+name = "devenv-control-plane"
+version = "0.1.0"
+description = "Control plane for the AI dev environment: settings, secrets, apply, agents, queue, MCP"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "pydantic>=2.9",
+  "cryptography>=43",
+  "httpx>=0.27",
+  "pyyaml>=6",
+  "python-multipart>=0.0.12",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=0.24"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["devenv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

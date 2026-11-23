@@ -1,0 +1,48 @@
+# Model catalogue for the settings dropdowns. Edit freely: the UI reads this file.
+# usage: token usage / cost tier shown next to each model, from very-high to low.
+# price: USD per million input / output tokens (list price at time of writing).
+anthropic:
+  - id: claude-fable-5-2
+    label: Claude Fable 5.2
+    usage: very-high
+    price: { input: 8.00, output: 40.00 }
+    note: Most capable; long, deep agentic runs
+  - id: claude-opus-5-5
+    label: Claude Opus 5.5
+    usage: high
+    price: { input: 4.00, output: 20.00 }
+    note: Best default for coding agents
+    default: true
+  - id: claude-sonnet-5-5
+    label: Claude Sonnet 5.5
+    usage: medium
+    price: { input: 2.00, output: 10.00 }
+    note: Fast everyday coding
+  - id: claude-haiku-5-5
+    label: Claude Haiku 5.5
+    usage: low
+    price: { input: 0.10, output: 0.50 }
+    note: Small, cheap tasks
+openai:
+  - id: gpt-5-codex
+    label: GPT-5 Codex
+    usage: high
+    note: Tuned for agentic coding in Codex
+    default: true
+  - id: gpt-5
+    label: GPT-5
+    usage: high
+    note: General reasoning model
+  - id: gpt-5-mini
+    label: GPT-5 mini
+    usage: medium
+    note: Cheaper, faster
+  - id: gpt-5-nano
+    label: GPT-5 nano
+    usage: low
+    note: Smallest and cheapest
+usage_tiers:
+  very-high: Very high token usage
+  high: High token usage
+  medium: Medium token usage
+  low: Low token usage
