@@ -5,10 +5,13 @@ export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
 apt-get -y -o Dpkg::Options::=--force-confnew full-upgrade
+# Hyper-V tools (KVP daemon) only exist for amd64; Hyper-V on Windows runs amd64 guests.
+hyperv=()
+[ "$(dpkg --print-architecture)" = amd64 ] && hyperv=(linux-cloud-tools-virtual linux-tools-virtual)
 apt-get install -y --no-install-recommends \
   ca-certificates curl wget gnupg lsb-release jq unzip zip xz-utils zstd \
   avahi-daemon libnss-mdns openssh-server sudo vim less htop tmux \
-  linux-cloud-tools-virtual linux-tools-virtual qemu-guest-agent \
+  "${hyperv[@]}" qemu-guest-agent \
   open-vm-tools cloud-guest-utils cloud-initramfs-growroot
 
 # Hyper-V integration services (KVP, VSS) and guest agents for other hypervisors.

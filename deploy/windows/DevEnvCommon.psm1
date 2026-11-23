@@ -18,6 +18,12 @@ function Save-DevEnvAsset {
     $assets = @($Release.assets | Where-Object { $_.name -eq $Name })
     $parts = @($Release.assets | Where-Object { $_.name -like "$Name.part*" } | Sort-Object name)
     if ($assets.Count -eq 0 -and $parts.Count -eq 0) { throw "Release $($Release.tag_name) has no asset named $Name" }
+    $split = $parts.Count -gt 0 -and $assets.Count -eq 0
+    if ($split -and (Test-Path $dest)) {
+        # Joined on an earlier run (the parts were deleted then); the caller's checksum step verifies it.
+        Write-Host "Using $Name downloaded earlier."
+        return $dest
+    }
     $todo = if ($assets.Count -gt 0) { $assets } else { $parts }
     $files = @()
     foreach ($a in $todo) {
@@ -33,12 +39,15 @@ function Save-DevEnvAsset {
         }
         $files += $out
     }
-    if ($parts.Count -gt 0 -and $assets.Count -eq 0) {
+    if ($split) {
         Write-Host "Joining $($files.Count) parts into $Name..."
-        $fs = [IO.File]::Create($dest)
+        # Join into a temporary file so an interrupted join never looks like a finished download.
+        $tmp = "$dest.partial"
+        $fs = [IO.File]::Create($tmp)
         try {
             foreach ($f in $files) { $in = [IO.File]::OpenRead($f); try { $in.CopyTo($fs) } finally { $in.Dispose() } }
         } finally { $fs.Dispose() }
+        Move-Item -Force $tmp $dest
         $files | Remove-Item -Force
     }
     return $dest

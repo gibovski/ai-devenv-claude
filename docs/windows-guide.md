@@ -105,6 +105,7 @@ and restore it the same way before logging in. In-place updates also work: `ssh 
 
 | Symptom | Fix |
 |---|---|
+| `Unable to allocate ... RAM` (0x800705AA) when the VM starts | Not enough free memory. The script uses dynamic memory when less than MemoryGB + 1 GB is free, but other apps may have taken more since. Close some apps and run `Start-VM devenv`, or recreate it smaller: `.\New-DevEnvVM.ps1 -Replace -MemoryGB 6`. |
 | No IP printed | The Default Switch can take a minute; run `Get-VMNetworkAdapter devenv` later, or open the console. |
 | `devenv.local` does not resolve | Use the IP. mDNS needs Bonjour/mDNS support on Windows (built into Windows 10 1803+ for most browsers). |
 | Secure Boot error at boot | `Set-VMFirmware devenv -SecureBootTemplate MicrosoftUEFICertificateAuthority` |
