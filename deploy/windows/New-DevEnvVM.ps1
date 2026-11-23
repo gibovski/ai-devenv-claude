@@ -63,14 +63,33 @@ $final = Join-Path $vmDir "$VMName.vhdx"
 Move-Item -Force $vhdx $final
 if ((Get-VHD $final).Size -lt ($DiskSizeGB * 1GB)) { Resize-VHD -Path $final -SizeBytes ($DiskSizeGB * 1GB) }
 
+# Fixed memory with nested virtualization needs MemoryGB free right now. On a busier PC fall back to
+# dynamic memory, which Hyper-V does not allow together with nested virtualization.
+$freeGB = [math]::Floor((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB)
+$fixed = $freeGB -ge ($MemoryGB + 1)
+$startGB = if ($fixed) { $MemoryGB } else { [math]::Max(2, [math]::Min(4, $MemoryGB)) }
+$minGB = [math]::Min(2, $startGB)
 Write-Host "Creating VM $VMName ($CPUs vCPU, $MemoryGB GB RAM, $DiskSizeGB GB disk, switch '$SwitchName')..."
-New-VM -Name $VMName -Generation 2 -MemoryStartupBytes ($MemoryGB * 1GB) -VHDPath $final -SwitchName $SwitchName -Path $Path | Out-Null
-Set-VMMemory -VMName $VMName -DynamicMemoryEnabled $false
-Set-VMProcessor -VMName $VMName -Count $CPUs -ExposeVirtualizationExtensions $true
+New-VM -Name $VMName -Generation 2 -MemoryStartupBytes ($startGB * 1GB) -VHDPath $final -SwitchName $SwitchName -Path $Path | Out-Null
+if ($fixed) {
+    Set-VMMemory -VMName $VMName -DynamicMemoryEnabled $false
+    Set-VMProcessor -VMName $VMName -Count $CPUs -ExposeVirtualizationExtensions $true
+} else {
+    Write-Host "Note: only $freeGB GB of RAM is free, so the VM uses dynamic memory ($startGB GB at start, $minGB-$MemoryGB GB) and nested virtualization is off. Docker agents work as normal. Close other apps and rerun with -Replace for a fixed $MemoryGB GB." -ForegroundColor Yellow
+    Set-VMProcessor -VMName $VMName -Count $CPUs -ExposeVirtualizationExtensions $false
+    Set-VMMemory -VMName $VMName -DynamicMemoryEnabled $true -StartupBytes ($startGB * 1GB) -MinimumBytes ($minGB * 1GB) -MaximumBytes ($MemoryGB * 1GB)
+}
 Set-VMFirmware -VMName $VMName -EnableSecureBoot On -SecureBootTemplate 'MicrosoftUEFICertificateAuthority'
 Enable-VMIntegrationService -VMName $VMName -Name 'Guest Service Interface' -ErrorAction SilentlyContinue
 Set-VM -Name $VMName -AutomaticStartAction Start -AutomaticStopAction ShutDown -CheckpointType Disabled -Notes "AI Dev Environment $tag"
-Start-VM -Name $VMName
+try {
+    Start-VM -Name $VMName
+} catch {
+    Write-Host ''
+    Write-Host "VM '$VMName' was created but could not start: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Fix the cause (see Troubleshooting in docs/windows-guide.md), then run: Start-VM $VMName" -ForegroundColor Yellow
+    exit 1
+}
 
 Write-Host 'Waiting for the VM to boot and report its address (first boot takes a few minutes)...'
 $deadline = (Get-Date).AddMinutes(15)
