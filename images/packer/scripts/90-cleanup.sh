@@ -28,6 +28,7 @@ rm -rf /var/lib/apt/lists/* /tmp/*
 cloud-init clean --logs --seed
 truncate -s 0 /etc/machine-id
 rm -f /var/lib/dbus/machine-id
-journalctl --rotate && journalctl --vacuum-time=1s || true
+journalctl --rotate || true
+journalctl --vacuum-time=1s || true
 fstrim -av || true
 sync

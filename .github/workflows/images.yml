@@ -23,6 +23,7 @@ permissions:
   packages: read
 env:
   PACKER_VERSION: "1.11.2"
+  PACKER_GITHUB_API_TOKEN: ${{ github.token }}
 jobs:
   validate:
     runs-on: ubuntu-24.04
