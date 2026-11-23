@@ -116,6 +116,29 @@ def compose_cmd(cfg: Config, *args: str) -> list[str]:
     return cmd + list(args)
 
 
+# Services the apply engine manages, by compose profile ("" = always on). The control
+# plane and caddy are left alone: recreating the control plane from inside itself kills
+# the `docker compose up` doing it, which leaves the stack down.
+MANAGED_SERVICES = {
+    "worker-claude": "",
+    "worker-codex": "",
+    "openhands": "openhands",
+    "cloudflared": "tunnel",
+    "cloudflared-quick": "quicktunnel",
+}
+
+
+def managed_commands(cfg: Config, env: dict[str, str]) -> list[list[str]]:
+    """Compose commands that bring the managed services to the desired state."""
+    active = set(filter(None, env.get("COMPOSE_PROFILES", "").split(",")))
+    up = [svc for svc, prof in MANAGED_SERVICES.items() if not prof or prof in active]
+    down = [svc for svc, prof in MANAGED_SERVICES.items() if prof and prof not in active]
+    cmds = [compose_cmd(cfg, "up", "-d", "--no-deps", *up)]
+    if down:
+        cmds.append(compose_cmd(cfg, "rm", "--stop", "--force", *down))
+    return cmds
+
+
 def tunnel_wanted(settings: Settings, secrets: SecretStore) -> bool:
     cf = settings.cloudflare
     return bool(
@@ -218,13 +241,16 @@ class ApplyEngine:
                     self._log(run_id, "Docker disabled (DEVENV_DOCKER=0); skipping compose up\n")
                     self._finish(run_id, "succeeded")
                     return
-                cmd = compose_cmd(self.cfg, "up", "-d", "--remove-orphans")
-                self._log(run_id, "$ " + " ".join(cmd) + "\n")
-                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                assert proc.stdout
-                for line in proc.stdout:
-                    self._log(run_id, line)
-                code = proc.wait()
+                code = 0
+                for cmd in managed_commands(self.cfg, env):
+                    self._log(run_id, "$ " + " ".join(cmd) + "\n")
+                    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                    assert proc.stdout
+                    for line in proc.stdout:
+                        self._log(run_id, line)
+                    code = proc.wait()
+                    if code != 0:
+                        break
                 self._finish(run_id, "succeeded" if code == 0 else "failed")
             except Exception as e:  # noqa: BLE001 - surface any failure in the run log
                 self._log(run_id, f"ERROR: {e}\n")
@@ -259,7 +285,7 @@ def reconcile_workers(engine: "ApplyEngine", desired: dict[str, int]) -> str | N
         return None
     with engine._lock:
         subprocess.run(
-            compose_cmd(cfg, "up", "-d", "--no-recreate", "worker-claude", "worker-codex"),
+            compose_cmd(cfg, "up", "-d", "--no-recreate", "--no-deps", "worker-claude", "worker-codex"),
             capture_output=True,
             timeout=600,
         )
