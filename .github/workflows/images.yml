@@ -1,0 +1,163 @@
+# Builds the Ubuntu VM images for amd64 and arm64, smoke-tests them and publishes a release.
+# Runs daily so images always carry the latest patches, and on demand.
+name: images
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      arches:
+        description: "JSON list of architectures"
+        default: '["amd64","arm64"]'
+      publish:
+        description: "Publish a release"
+        type: boolean
+        default: true
+  pull_request:
+    paths: ["images/**", ".github/workflows/images.yml"]
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+permissions:
+  contents: write
+  packages: read
+env:
+  PACKER_VERSION: "1.11.2"
+  PACKER_GITHUB_API_TOKEN: ${{ github.token }}
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-packer@main
+        with:
+          version: ${{ env.PACKER_VERSION }}
+      - name: packer validate
+        working-directory: images/packer
+        run: |
+          packer init .
+          packer validate -var arch=amd64 .
+          packer validate -var arch=arm64 -var accelerator=tcg .
+
+  prepare:
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      arches: ${{ steps.tag.outputs.arches }}
+      publish: ${{ steps.tag.outputs.publish }}
+    steps:
+      - id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHES: ${{ inputs.arches || '["amd64","arm64"]' }}
+          PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish }}
+        run: |
+          base="v$(date -u +%Y.%m.%d)"
+          tag=$base n=1
+          while gh release view "$tag" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; do n=$((n+1)); tag="$base.$n"; done
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "arches=$ARCHES" >> "$GITHUB_OUTPUT"
+          echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
+          if [ "$PUBLISH" = true ]; then
+            gh release create "$tag" -R "$GITHUB_REPOSITORY" --draft --target "$GITHUB_SHA" \
+              --title "AI Dev Environment $tag" --notes "Daily build $tag from ${GITHUB_SHA::7}."
+          fi
+
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(needs.prepare.outputs.arches) }}
+    # Native arm64 runners are free on public repos; set the ARM64_RUNNER variable to use them.
+    runs-on: ${{ matrix.arch == 'arm64' && (vars.ARM64_RUNNER || 'ubuntu-24.04') || 'ubuntu-24.04' }}
+    timeout-minutes: 360
+    env:
+      ARCH: ${{ matrix.arch }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune -af >/dev/null || true
+          df -h /
+      - name: Install QEMU and tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-system-arm qemu-utils \
+            qemu-efi-aarch64 ovmf cloud-image-utils zstd zip jq gettext-base
+          if [ -e /dev/kvm ]; then
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+            sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          fi
+      - name: Choose accelerator
+        id: accel
+        run: |
+          host=$(uname -m); want=$([ "$ARCH" = arm64 ] && echo aarch64 || echo x86_64)
+          if [ "$host" = "$want" ] && [ -w /dev/kvm ]; then echo "accel=kvm" >> "$GITHUB_OUTPUT"; else echo "accel=tcg" >> "$GITHUB_OUTPUT"; fi
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build stack images for ${{ matrix.arch }}
+        run: |
+          if [ -x stack/build-images.sh ]; then
+            stack/build-images.sh "linux/$ARCH" images/packer/images-cache "$TAG"
+          fi
+      - uses: hashicorp/setup-packer@main
+        with:
+          version: ${{ env.PACKER_VERSION }}
+      - name: Packer build
+        working-directory: images/packer
+        env:
+          PACKER_LOG: "0"
+        run: |
+          packer init .
+          packer build -color=false -var arch="$ARCH" -var accelerator=${{ steps.accel.outputs.accel }} \
+            -var version="$TAG" -var cpus=4 .
+          rm -rf images-cache/*.tar
+      - name: Smoke test
+        run: images/scripts/smoke-test.sh "images/packer/output-$ARCH/devenv-$TAG-$ARCH.qcow2" "$ARCH"
+      - name: Convert formats
+        run: |
+          out=dist base="devenv-$TAG-$ARCH"
+          images/scripts/convert.sh "images/packer/output-$ARCH/$base.qcow2" "$out" "$base" "$ARCH"
+          python3 images/scripts/sbom.py "images/packer/output-$ARCH/packages.tsv" "images/packer/output-$ARCH/images.txt" \
+            "$out/$base.spdx.json" "$base"
+          rm -rf "images/packer/output-$ARCH"
+          images/scripts/split-large.sh "$out"
+          mv "$out/SHA256SUMS" "$out/SHA256SUMS-$ARCH"
+          [ -f "$out/SHA256SUMS.parts" ] && mv "$out/SHA256SUMS.parts" "$out/SHA256SUMS-$ARCH.parts"
+          df -h /
+      - name: Upload to release
+        if: needs.prepare.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/* -R "$GITHUB_REPOSITORY" --clobber
+
+  publish:
+    needs: [prepare, build]
+    if: needs.prepare.outputs.publish == 'true' && !cancelled()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Publish release and keep the last 7
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          OK: ${{ needs.build.result == 'success' }}
+        run: |
+          if [ "$OK" != true ]; then
+            echo "::warning::A build failed; release $TAG stays a draft."
+            exit 0
+          fi
+          gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false --latest
+          gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName,isDraft,createdAt \
+            --jq '[.[] | select(.isDraft | not)] | sort_by(.createdAt) | reverse | .[7:] | .[].tagName' |
+          while read -r old; do
+            echo "deleting $old"
+            gh release delete "$old" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          done
+          gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName,isDraft,createdAt \
+            --jq '[.[] | select(.isDraft)] | .[] | select(.createdAt < (now - 172800 | todate)) | .tagName' |
+          while read -r old; do gh release delete "$old" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag; done

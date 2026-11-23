@@ -1,0 +1,13 @@
+[Unit]
+Description=AI Dev Environment first-boot setup
+After=local-fs.target
+Before=devenv-stack.service ssh.service
+ConditionPathExists=!/var/lib/devenv/firstboot.done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/devenv-firstboot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

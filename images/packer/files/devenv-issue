@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Writes the settings URL (and the one-time password while it is still valid) to the console
+# login screen (/etc/issue), the SSH banner (/etc/issue.net) and the message of the day.
+set -euo pipefail
+STATE=/var/lib/devenv
+ver=$(cat /opt/devenv/VERSION 2>/dev/null || echo dev)
+ips=$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+\.' || true)
+pw=""
+[ -f "$STATE/initial-admin-password" ] && pw=$(cat "$STATE/initial-admin-password")
+
+{
+  echo
+  echo "  AI Dev Environment $ver ($(cat /opt/devenv/ARCH 2>/dev/null || uname -m))"
+  echo
+  echo "  Open the settings UI in a browser on your computer:"
+  echo "    http://devenv.local/"
+  for ip in $ips; do echo "    http://$ip/"; done
+  echo
+  if [ -n "$pw" ]; then
+    echo "  One-time admin password: $pw"
+    echo "  (user 'admin' in the browser; user 'dev' over SSH, you will be asked to change it)"
+  else
+    echo "  Admin password has been changed. Log in with your own password."
+  fi
+  echo
+} > /etc/issue.net.new
+
+{
+  cat /etc/issue.net.new
+  printf '%s\n' '  Console address: \4'
+  echo
+} > /etc/issue.new
+mv /etc/issue.net.new /etc/issue.net
+mv /etc/issue.new /etc/issue
+cp /etc/issue.net /etc/motd
+# Refresh the getty so the console shows the new text.
+command -v agetty >/dev/null && pkill -HUP -x agetty 2>/dev/null || true
