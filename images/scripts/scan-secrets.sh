@@ -8,7 +8,7 @@ img=$(realpath "$1")
 mnt=$(mktemp -d)
 pat=$(mktemp)
 chmod 600 "$pat"
-# shellcheck disable=SC2329  # invoked by the EXIT trap
+# shellcheck disable=SC2317,SC2329  # invoked by the EXIT trap
 cleanup() { sudo umount "$mnt" 2>/dev/null || true; sudo qemu-nbd -d /dev/nbd0 >/dev/null 2>&1 || true; rm -rf "$mnt" "$pat"; }
 trap cleanup EXIT
 
