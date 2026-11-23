@@ -15,17 +15,24 @@ trap cleanup EXIT
 sudo modprobe nbd max_part=8
 sudo qemu-nbd -r -c /dev/nbd0 "$img"
 for _ in $(seq 1 20); do [ -e /dev/nbd0p1 ] && break; sleep 0.5; done
-sudo partprobe /dev/nbd0 2>/dev/null || true
-# Partition type detection is unreliable on nbd devices (no udev probe), so try to mount each
-# partition as ext4 and keep the one that holds an OS.
+sudo udevadm settle 2>/dev/null || true
+# Find the root filesystem by probing the partitions directly (no blkid cache, no udev data),
+# then mount it, retrying while the nbd device finishes setting up.
 root=""
-for p in /dev/nbd0p*; do
-  if sudo mount -o ro,noload -t ext4 "$p" "$mnt" 2>/dev/null; then
-    if sudo test -f "$mnt/etc/os-release"; then root=$p; break; fi
-    sudo umount "$mnt"
-  fi
+for _ in $(seq 1 10); do
+  for p in /dev/nbd0p*; do
+    if [ "$(sudo blkid -p -o value -s LABEL "$p" 2>/dev/null)" = cloudimg-rootfs ]; then root=$p; break; fi
+  done
+  [ -n "$root" ] && break
+  sleep 2
 done
 [ -n "$root" ] || { echo "no root filesystem found"; lsblk /dev/nbd0; sudo blkid -p /dev/nbd0p* || true; exit 1; }
+for i in $(seq 1 10); do
+  if sudo mount -o ro,noload -t ext4 "$root" "$mnt"; then break; fi
+  [ "$i" = 10 ] && { sudo dmesg | tail -20; exit 1; }
+  sleep 2
+done
+sudo test -e "$mnt/etc/os-release" || { echo "mounted $root but it has no /etc/os-release"; sudo ls "$mnt"; exit 1; }
 echo "scanning $root"
 fail=0
 
