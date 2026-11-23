@@ -20,13 +20,15 @@ function SecretField({ name, status, value, onChange }: { name: string; status?:
   );
 }
 
-function CheckButton({ provider }: { provider: string }) {
+// Tests the value typed in the field above if there is one (without saving it), else the saved value.
+function CheckButton({ provider, value }: { provider: string; value?: string }) {
   const [result, setResult] = useState<Check>();
   const [busy, setBusy] = useState(false);
   const run = async () => {
     setBusy(true);
     try {
-      setResult(await api<Check>(`/api/settings/check/${provider}`, { method: "POST" }));
+      const typed = value?.trim();
+      setResult(await api<Check>(`/api/settings/check/${provider}`, { method: "POST", json: typed ? { value: typed } : {} }));
     } catch (e) {
       setResult({ ok: false, detail: (e as Error).message });
     }
@@ -119,7 +121,7 @@ export default function Settings() {
       <h1>Settings</h1>
       <Section title="GitHub">
         {secret("github_token")}
-        <CheckButton provider="github" />
+        <CheckButton provider="github" value={pending.github_token} />
         <div className="grid2">
           <label>
             Owner (user or org)
@@ -152,14 +154,14 @@ export default function Settings() {
           both are set, agents use the API key.
         </p>
         {secret("claude_code_oauth_token")}
-        <CheckButton provider="claude" />
+        <CheckButton provider="claude" value={pending.claude_code_oauth_token} />
         {secret("anthropic_api_key")}
-        <CheckButton provider="anthropic" />
+        <CheckButton provider="anthropic" value={pending.anthropic_api_key} />
       </Section>
 
       <Section title="OpenAI">
         {secret("openai_api_key")}
-        <CheckButton provider="openai" />
+        <CheckButton provider="openai" value={pending.openai_api_key} />
       </Section>
 
       <Section title="Remote access (Cloudflare Tunnel)">
@@ -184,7 +186,7 @@ export default function Settings() {
         ) : (
           <>
             {secret("cloudflare_api_token")}
-            <CheckButton provider="cloudflare" />
+            <CheckButton provider="cloudflare" value={pending.cloudflare_api_token} />
             <div className="grid2">
               <label>
                 Account ID
@@ -213,7 +215,7 @@ export default function Settings() {
             {!s.cloudflare.manage_with_terraform && (
               <>
                 {secret("cloudflare_tunnel_token")}
-                <CheckButton provider="tunnel" />
+                <CheckButton provider="tunnel" value={pending.cloudflare_tunnel_token} />
               </>
             )}
           </>

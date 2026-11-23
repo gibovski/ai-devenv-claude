@@ -74,6 +74,24 @@
     "title": "Body_upload_api_tasks__task_id__attachments_post",
     "type": "object"
    },
+   "CheckIn": {
+    "properties": {
+     "value": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Test this typed value instead of the stored one; it is not saved",
+      "title": "Value"
+     }
+    },
+    "title": "CheckIn",
+    "type": "object"
+   },
    "CloudflareSettings": {
     "properties": {
      "access_emails": {
@@ -1256,7 +1274,7 @@
   },
   "/api/settings/check/{provider}": {
    "post": {
-    "description": "Run a live check with the stored credential for one provider.",
+    "description": "Run a live check for one provider, with a typed value if given, else the stored credential.",
     "operationId": "check_api_settings_check__provider__post",
     "parameters": [
      {
@@ -1269,6 +1287,23 @@
       }
      }
     ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/CheckIn"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
     "responses": {
      "200": {
       "content": {

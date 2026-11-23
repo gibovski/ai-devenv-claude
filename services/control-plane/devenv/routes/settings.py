@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .. import checks
 from ..apply import ensure_worker_token, preview, render
@@ -44,9 +44,13 @@ def put_secrets(body: SecretsIn, request: Request):
     return secret_status(request)
 
 
+class CheckIn(BaseModel):
+    value: str | None = Field(None, description="Test this typed value instead of the stored one; it is not saved")
+
+
 @router.post("/settings/check/{provider}")
-def check(provider: str, request: Request):
-    """Run a live check with the stored credential for one provider."""
+def check(provider: str, request: Request, body: CheckIn | None = None):
+    """Run a live check for one provider, with a typed value if given, else the stored credential."""
     store = request.app.state.secrets
     s = load_settings(request.app.state.db)
     secret_name = {
@@ -59,9 +63,9 @@ def check(provider: str, request: Request):
     }.get(provider)
     if not secret_name:
         raise HTTPException(404, "Unknown provider")
-    value = store.get(secret_name)
+    value = ((body.value if body else None) or "").strip() or store.get(secret_name)
     if not value:
-        return {"ok": False, "detail": "Not set"}
+        return {"ok": False, "detail": "Nothing to test: paste a value above (or save one first)"}
     if provider == "github":
         return checks.check_github(value, request.app.state.cfg.github_api)
     if provider == "openai":
