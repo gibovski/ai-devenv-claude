@@ -1,0 +1,56 @@
+"""Settings schema. Non-secret settings live in the kv table; credentials live in the secret store."""
+
+from pydantic import BaseModel, Field, field_validator
+
+from .catalogue.loader import default_model
+
+# Names of secrets the UI can set. They are write-only: the API reports only whether each is set.
+SECRET_FIELDS = {
+    "github_token": "GitHub personal access token (repo, workflow scopes)",
+    "openai_api_key": "OpenAI API key",
+    "anthropic_api_key": "Anthropic API key",
+    "cloudflare_api_token": "Cloudflare API token",
+    "cloudflare_tunnel_token": "Cloudflare Tunnel token (from Terraform or the dashboard)",
+}
+
+
+class GitHubSettings(BaseModel):
+    owner: str = ""
+    default_repo: str = ""
+    git_user_name: str = "AI Dev Agent"
+    git_user_email: str = "agent@devenv.local"
+    auto_merge: bool = True
+
+
+class CloudflareSettings(BaseModel):
+    account_id: str = ""
+    zone: str = ""
+    hostname: str = ""
+    tunnel_enabled: bool = False
+
+
+class AgentPool(BaseModel):
+    count: int = Field(0, ge=0, le=16)
+    model: str = ""
+
+
+class AgentSettings(BaseModel):
+    claude: AgentPool = Field(default_factory=lambda: AgentPool(count=1, model=default_model("anthropic")))
+    codex: AgentPool = Field(default_factory=lambda: AgentPool(count=0, model=default_model("openai")))
+    openhands_enabled: bool = False
+    max_attempts: int = Field(3, ge=1, le=10)
+
+
+class Settings(BaseModel):
+    github: GitHubSettings = Field(default_factory=GitHubSettings)
+    cloudflare: CloudflareSettings = Field(default_factory=CloudflareSettings)
+    agents: AgentSettings = Field(default_factory=AgentSettings)
+
+    @field_validator("agents")
+    @classmethod
+    def _models_known(cls, v: AgentSettings) -> AgentSettings:
+        # Unknown model ids are allowed (the catalogue is advisory) but must be non-empty when a pool is used.
+        for name, pool in (("claude", v.claude), ("codex", v.codex)):
+            if pool.count and not pool.model:
+                raise ValueError(f"agents.{name}.model is required when count > 0")
+        return v
