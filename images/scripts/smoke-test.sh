@@ -65,3 +65,10 @@ if ssh_ 'test -f /opt/devenv/compose.yaml'; then
   curl -fsS -o /dev/null http://127.0.0.1:8080/
 fi
 echo "SMOKE TEST PASSED"
+
+# Optional end-to-end stage: E2E_HOOK is a script that gets the UI URL and the admin password.
+if [ -n "${E2E_HOOK:-}" ]; then
+  pw=$(ssh_ 'sudo cat /var/lib/devenv/initial-admin-password')
+  DEVENV_URL=http://127.0.0.1:8080 DEVENV_ADMIN_PASSWORD="$pw" "$E2E_HOOK" || {
+    ssh_ 'cd /opt/devenv && sudo docker compose -p devenv ps; sudo docker compose -p devenv logs --tail 120'; exit 1; }
+fi
