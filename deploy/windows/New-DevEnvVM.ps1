@@ -122,6 +122,6 @@ while ((Get-Date) -lt $deadline -and -not $password) {
 
 Write-Host ''
 Write-Host "VM '$VMName' is running." -ForegroundColor Green
-if ($ip) { Write-Host "  Settings UI:  http://$ip/   (or http://devenv.local/)" } else { Write-Host '  Settings UI:  http://devenv.local/  (IP not reported yet: open the VM console with vmconnect)' }
+if ($ip) { Write-Host "  Settings UI:  http://$ip/   (or http://devenv.local/)" } else { Write-Host "  No IP address reported after 15 minutes. Check the VM console: vmconnect localhost $VMName  (log in as dev and run: ip -4 addr)" -ForegroundColor Yellow; Write-Host '  Settings UI:  http://devenv.local/  (if the VM has an address)' }
 if ($password) { Write-Host "  Admin password (one-time): $password" } else { Write-Host "  Admin password: shown on the VM console. Run: vmconnect localhost $VMName" }
 Write-Host "  SSH:          ssh dev@$(if ($ip) { $ip } else { 'devenv.local' })  (same one-time password, you will be asked to change it)"

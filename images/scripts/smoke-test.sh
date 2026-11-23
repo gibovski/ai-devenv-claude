@@ -9,7 +9,7 @@ work=$(mktemp -d)
 trap 'kill "${qpid:-0}" 2>/dev/null || true; rm -rf "$work"' EXIT
 
 ssh-keygen -q -t ed25519 -N "" -f "$work/key"
-"$here/../cloud-init/make-seed.sh" -o "$work/seed.iso" -k "$work/key.pub" >/dev/null
+"$here/../cloud-init/make-seed.sh" -N -o "$work/seed.iso" -k "$work/key.pub" >/dev/null
 qemu-img create -q -f qcow2 -F qcow2 -b "$(realpath "$img")" "$work/disk.qcow2"
 
 accel=tcg; [ -w /dev/kvm ] && accel=kvm
@@ -30,7 +30,7 @@ fi
 
 "${qemu[@]}" -accel $accel -smp 4 -m 6144 -display none -serial file:"$work/console.log" \
   -drive file="$work/disk.qcow2",if=virtio -drive file="$work/seed.iso",media=cdrom,if=virtio \
-  -nic user,model=virtio-net-pci,hostfwd=tcp::2222-:22,hostfwd=tcp::8080-:80 &
+  -nic user,model=virtio-net-pci,mac=52:54:00:de:5e:01,hostfwd=tcp::2222-:22,hostfwd=tcp::8080-:80 &
 qpid=$!
 
 ssh_() { ssh -q -i "$work/key" -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 dev@127.0.0.1 "$@"; }

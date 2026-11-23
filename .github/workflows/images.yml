@@ -93,7 +93,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-system-arm qemu-utils \
-            qemu-efi-aarch64 ovmf cloud-image-utils zstd zip jq gettext-base
+            qemu-efi-aarch64 ovmf cloud-image-utils genisoimage zstd zip jq gettext-base
           if [ -e /dev/kvm ]; then
             echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
             sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
@@ -194,7 +194,7 @@ jobs:
         if: steps.creds.outputs.ok == 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf cloud-image-utils jq
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf cloud-image-utils genisoimage jq
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
       - name: Boot the image and run a task to a merged PR
