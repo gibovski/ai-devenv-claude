@@ -12,6 +12,15 @@
 
 .EXAMPLE
   .\New-DevEnvVM.ps1
+  With -Replace, the existing VM's settings, credentials and queue are backed up first (to
+  Documents\DevEnv-backups) and restored onto the new VM, so you don't type your tokens again. The
+  first time this asks for the old VM's SSH password for "dev", and on the new VM for its one-time
+  password and a new password. -NoBackup skips this; -BackupFile restores a backup you made before.
+
+.EXAMPLE
+  .\New-DevEnvVM.ps1
+.EXAMPLE
+  .\New-DevEnvVM.ps1 -Replace -Version v2026.11.23.13
 .EXAMPLE
   .\New-DevEnvVM.ps1 -VMName devenv2 -MemoryGB 16 -CPUs 8 -DiskSizeGB 200 -SwitchName "External"
 #>
@@ -25,10 +34,13 @@ param(
     [int]$CPUs = 4,
     [int]$DiskSizeGB = 100,
     [string]$SwitchName = 'Default Switch',
-    [switch]$Replace
+    [switch]$Replace,
+    [switch]$NoBackup,
+    [string]$BackupFile
 )
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'DevEnvCommon.psm1') -Force
+if ($BackupFile -and -not (Test-Path $BackupFile)) { throw "Backup file not found: $BackupFile" }
 
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run this script in an elevated PowerShell (Run as administrator).' }
@@ -37,6 +49,19 @@ if (-not (Get-Command New-VM -ErrorAction SilentlyContinue)) {
 }
 if (Get-VM -Name $VMName -ErrorAction SilentlyContinue) {
     if (-not $Replace) { throw "A VM named $VMName already exists. Use -Replace to delete and recreate it, or -VMName to pick another name." }
+    if (-not $NoBackup -and -not $BackupFile) {
+        if ((Get-VM -Name $VMName).State -ne 'Running') {
+            throw "VM $VMName is not running, so its settings can't be backed up. Start it (Start-VM $VMName) and wait a minute, or add -NoBackup to replace it without keeping its settings."
+        }
+        try {
+            $oldIp = Get-DevEnvAddress -VMName $VMName
+            $out = Join-Path ([Environment]::GetFolderPath('MyDocuments')) ("DevEnv-backups\$VMName-backup-{0:yyyyMMdd-HHmmss}.tgz" -f (Get-Date))
+            $BackupFile = Backup-DevEnvState -Address $oldIp -OutFile $out -PasswordHint "This is the password you use for 'ssh dev@$oldIp'."
+            Write-Host "Settings and credentials saved to $BackupFile (keep it private)." -ForegroundColor Green
+        } catch {
+            throw "Backing up $VMName failed, so nothing was deleted: $($_.Exception.Message) Fix it and run again, or add -NoBackup to replace the VM without keeping its settings."
+        }
+    }
     Write-Host "Removing existing VM $VMName..."
     Stop-VM -Name $VMName -TurnOff -Force -ErrorAction SilentlyContinue
     $old = (Get-VMHardDiskDrive -VMName $VMName).Path
@@ -120,8 +145,26 @@ while ((Get-Date) -lt $deadline -and -not $password) {
     if (-not $password) { Start-Sleep -Seconds 10 }
 }
 
+$restored = $false
+if ($BackupFile) {
+    if ($ip -and $password) {
+        Write-Host "Restoring your settings and credentials from $BackupFile ..."
+        for ($i = 0; $i -lt 30 -and -not (Test-NetConnection -ComputerName $ip -Port 22 -InformationLevel Quiet -WarningAction SilentlyContinue); $i++) { Start-Sleep -Seconds 10 }
+        try {
+            Restore-DevEnvState -Address $ip -BackupFile $BackupFile -PasswordHint "The new VM's one-time password is: $password  (then choose a new one)"
+            $restored = $true
+        } catch {
+            Write-Host "Restoring failed: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "Try again with: .\Restore-DevEnv.ps1 -VMName $VMName -BackupFile `"$BackupFile`"" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "The new VM didn't report its address or password in time, so nothing was restored yet. When it is up, run: .\Restore-DevEnv.ps1 -VMName $VMName -BackupFile `"$BackupFile`"" -ForegroundColor Yellow
+    }
+}
+
 Write-Host ''
 Write-Host "VM '$VMName' is running." -ForegroundColor Green
 if ($ip) { Write-Host "  Settings UI:  http://$ip/   (or http://devenv.local/)" } else { Write-Host "  No IP address reported after 15 minutes. Check the VM console: vmconnect localhost $VMName  (log in as dev and run: ip -4 addr)" -ForegroundColor Yellow; Write-Host '  Settings UI:  http://devenv.local/  (if the VM has an address)' }
-if ($password) { Write-Host "  Admin password (one-time): $password" } else { Write-Host "  Admin password: shown on the VM console. Run: vmconnect localhost $VMName" }
+if ($restored) { Write-Host '  Your settings and credentials are restored: log in as admin with your previous password, then press Apply once.' -ForegroundColor Green }
+elseif ($password) { Write-Host "  Admin password (one-time): $password" } else { Write-Host "  Admin password: shown on the VM console. Run: vmconnect localhost $VMName" }
 Write-Host "  SSH:          ssh dev@$(if ($ip) { $ip } else { 'devenv.local' })  (same one-time password, you will be asked to change it)"
