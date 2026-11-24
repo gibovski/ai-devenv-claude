@@ -188,11 +188,30 @@ Access. Controllers use `<address>/mcp/t/<token>`.
 
 ## Updating
 
-Images are rebuilt every day with the latest Ubuntu patches and agent versions. Your settings, secrets and
-queue live on the VM disk in `/var/lib/devenv`, so to move to a new image keep a copy of that folder
-(`ssh dev@<ip> sudo tar -C /var/lib -czf - devenv > devenv-state.tgz`), run `.\New-DevEnvVM.ps1 -Replace`,
-and restore it the same way before logging in. In-place updates also work: `ssh dev@<ip>` then
-`sudo apt upgrade` and `sudo /opt/devenv/bin/stack-up`.
+Images are rebuilt every day with the latest Ubuntu patches and agent versions. Your settings,
+credentials, controllers and queue live on the VM's disk, so moving to a new image means backing them up
+and restoring them. The scripts do that for you:
+
+1. Download the scripts again (step 2 above: the `iwr` and `Expand-Archive` lines), so you have the newest
+   ones, and `cd ai-devenv-claude-main\deploy\windows` in an administrator PowerShell.
+2. Run `.\New-DevEnvVM.ps1 -Replace` (add `-Version v2026.11.23.13` for a specific release). It:
+   - backs up the running VM to `Documents\DevEnv-backups` (it asks once for the VM's SSH password for
+     `dev`, the one you use with `ssh dev@<ip>`);
+   - replaces the VM with the new image;
+   - restores the backup onto it (it asks for the new VM's one-time password, which it prints, and then
+     for a new password of your choice).
+3. Open the printed address, log in as `admin` with your **previous** password, open **Apply** and press
+   **Apply now**.
+
+If anything fails before the old VM is deleted, nothing is deleted. You can also run the two halves by
+hand: `.\Backup-DevEnv.ps1` saves a backup at any time (a good habit before big changes), and
+`.\Restore-DevEnv.ps1 -BackupFile <file>` puts one onto a VM. Add `-Address <ip>` if PowerShell isn't
+running as administrator.
+
+The backup contains your credentials together with the key that decrypts them. Keep it on your PC, and
+never share it or attach it anywhere.
+
+In-place updates also work: `ssh dev@<ip>` then `sudo apt upgrade` and `sudo /opt/devenv/bin/stack-up`.
 
 ## Troubleshooting
 
