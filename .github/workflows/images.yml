@@ -153,8 +153,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$TAG" dist/* -R "$GITHUB_REPOSITORY" --clobber
+      # Only when not publishing: a published build's e2e job pulls the image from the draft release,
+      # so the ~4 GB image never lands in Actions artifact storage (which is shared across every repo
+      # on the account and was filling the quota, breaking other repos' deploys).
       - name: Keep the amd64 image for the end-to-end test
-        if: matrix.arch == 'amd64' && (github.event_name == 'schedule' || inputs.e2e)
+        if: matrix.arch == 'amd64' && needs.prepare.outputs.publish != 'true' && (github.event_name == 'schedule' || inputs.e2e)
         uses: actions/upload-artifact@v4
         with:
           name: e2e-image
@@ -188,8 +191,13 @@ jobs:
           fi
       - uses: actions/checkout@v4
         if: steps.creds.outputs.ok == 'true'
+      - name: Download the image from the draft release
+        if: steps.creds.outputs.ok == 'true' && needs.prepare.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p "devenv-$TAG-amd64.qcow2*" -D e2e
       - uses: actions/download-artifact@v4
-        if: steps.creds.outputs.ok == 'true'
+        if: steps.creds.outputs.ok == 'true' && needs.prepare.outputs.publish != 'true'
         with:
           name: e2e-image
           path: e2e
@@ -224,12 +232,18 @@ jobs:
             exit 0
           fi
           gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false --latest
+          # Pruning is housekeeping: it must never fail the run. Draft releases have no git tag, so
+          # --cleanup-tag 422s on them; fall back to deleting without it. </dev/null stops gh eating
+          # the loop's input and skipping entries.
+          prune() {
+            echo "deleting $1"
+            gh release delete "$1" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag </dev/null \
+              || gh release delete "$1" -R "$GITHUB_REPOSITORY" --yes </dev/null \
+              || echo "::warning::could not delete release $1"
+          }
           gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName,isDraft,createdAt \
             --jq '[.[] | select(.isDraft | not)] | sort_by(.createdAt) | reverse | .[7:] | .[].tagName' |
-          while read -r old; do
-            echo "deleting $old"
-            gh release delete "$old" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag
-          done
+          while read -r old; do prune "$old"; done
           gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName,isDraft,createdAt \
             --jq '[.[] | select(.isDraft)] | .[] | select(.createdAt < (now - 172800 | todate)) | .tagName' |
-          while read -r old; do gh release delete "$old" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag; done
+          while read -r old; do prune "$old"; done
