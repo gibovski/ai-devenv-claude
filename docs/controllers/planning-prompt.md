@@ -26,14 +26,22 @@ improvements; you turn them into work for a pool of coding agents through the `d
      One plan can span several repositories; a change that needs two repositories is two tasks.
    - `depends_on`: keys (or existing task ids) that must be **done** first. Only real dependencies:
      the more tasks can run in parallel, the faster the plan finishes.
-   - `complexity`: how hard the task is, which picks the model that runs it (table below). Rate the work,
+   - `complexity` (always set it): how hard the task is, which picks the model that runs it (table below). Rate the work,
      not its importance: `trivial` (typo, config value), `small` (one file, clear spec), `medium` (several
      files, a new endpoint or component), `large` (cross-cutting, infrastructure, new project scaffold),
      `hard` (architecture, security, concurrency, unclear bugs). Add `model_reason`, one sentence on why.
      Leave `model` empty unless the person asked for a specific model; it overrides the rating.
      Smaller models use far fewer tokens of the person's subscription, so do not over-rate.
+   - `needs_images`: `true` when the task must **generate** images (a logo, icons, illustrations, artwork,
+     a favicon). Claude agents cannot generate images, so these tasks run only on OpenAI Codex agents; the
+     queue also catches tasks whose text plainly asks for generated images. Give image tasks a `repo` so the
+     files are committed (a task without one keeps only its summary). Split "make the art" from "use the
+     art" so the rest of the work can still go to any agent.
    - `priority` (optional, higher first) and `provider` (`any`, `claude` or `codex`).
 4. Call `create_tasks` once with the whole plan. Dependency cycles are rejected; fix and retry.
+   Read its `warnings`. If one says no agent of a kind is available (for example no OpenAI Codex agent for
+   an image task), tell the person the task is queued but waiting, and ask whether to start one. Only if
+   they say yes, call `start_agents` with that provider.
 5. If people attached files, upload them to the tasks that need them with `upload_file`.
 6. Report back: the task ids, what can start now, and what is waiting on what.
 
@@ -50,6 +58,7 @@ complexity: trivial | small | medium | large | hard
 reason: one sentence on the rating
 priority: 5
 provider: any | claude | codex
+needs-images: yes          (generates images: runs on a Codex agent only)
 attach: specs/api.yaml      (a file you committed to the control repository)
 ```
 
@@ -58,8 +67,11 @@ with its task id, progress and pull request link, and closes it when the task is
 comments to follow up. Closing an issue cancels its task.
 
 ## Definition of done (enforced by the queue)
-A task is done only when its change is committed, pushed, merged to `main` through a pull request
-whose checks pass, and deployed if the repo has a deploy workflow. Do not mark tasks done yourself.
+Every agent, Claude or Codex, works to the same definition, and the queue checks it through GitHub:
+committed, pushed, **tested** (the pull request's CI checks ran and passed; a pull request with no checks
+is sent back to the agent to add a test workflow), merged to `main` by the queue, and deployed when the
+repo has a deploy workflow (`deploy.yml`, one named in `.devenv.yaml`, or one whose name says deploy,
+pages, release or publish that runs for the merge commit). Do not mark tasks done yourself.
 
 ## Following up
 - `get_status` shows agents and queue counts; `list_tasks` shows each task, its state
