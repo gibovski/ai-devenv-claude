@@ -24,7 +24,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\New-DevEnvVM.ps1
 ```
 
-The script downloads the newest daily image from
+The script downloads the newest image from
 [Releases](https://github.com/gibovski/ai-devenv-claude/releases), checks its SHA-256, creates a
 Generation 2 VM (Secure Boot on, 4 vCPUs, 8 GB RAM, 100 GB disk by default) on the *Default Switch*,
 starts it, and prints:
@@ -188,7 +188,7 @@ Access. Controllers use `<address>/mcp/t/<token>`.
 
 ## Updating
 
-Images are rebuilt every day with the latest Ubuntu patches and agent versions. Your settings,
+Images are rebuilt whenever something that goes into them changes on main, and once a month for the latest Ubuntu patches and agent versions. Your settings,
 credentials, controllers and queue live on the VM's disk, so moving to a new image means backing them up
 and restoring them. The scripts do that for you:
 

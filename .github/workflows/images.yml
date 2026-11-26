@@ -1,9 +1,20 @@
 # Builds the Ubuntu VM images for amd64 and arm64, smoke-tests them and publishes a release.
-# Runs daily so images always carry the latest patches, and on demand.
+# Runs when something that goes into the image changes on main, once a month to pick up
+# OS security patches, and on demand.
 name: images
 on:
+  push:
+    branches: [main]
+    paths:
+      - "images/**"
+      - "stack/**"
+      - "services/**"
+      - "workers/**"
+      - "mcp/**"
+      - "infra/terraform/cloudflare/**"
+      - ".github/workflows/images.yml"
   schedule:
-    - cron: "17 3 * * *"
+    - cron: "17 3 1 * *"
   workflow_dispatch:
     inputs:
       arches:
@@ -56,7 +67,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ARCHES: ${{ inputs.arches || '["amd64","arm64"]' }}
-          PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish }}
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
         run: |
           base="v$(date -u +%Y.%m.%d)"
           tag=$base n=1
@@ -157,7 +168,7 @@ jobs:
       # so the ~4 GB image never lands in Actions artifact storage (which is shared across every repo
       # on the account and was filling the quota, breaking other repos' deploys).
       - name: Keep the amd64 image for the end-to-end test
-        if: matrix.arch == 'amd64' && needs.prepare.outputs.publish != 'true' && (github.event_name == 'schedule' || inputs.e2e)
+        if: matrix.arch == 'amd64' && needs.prepare.outputs.publish != 'true' && (github.event_name != 'workflow_dispatch' || inputs.e2e)
         uses: actions/upload-artifact@v4
         with:
           name: e2e-image
@@ -169,7 +180,7 @@ jobs:
   # already-scanned image. They never reach the build job or any published file.
   e2e:
     needs: [prepare, build]
-    if: (github.event_name == 'schedule' || inputs.e2e) && contains(needs.prepare.outputs.arches, 'amd64') && needs.build.result == 'success'
+    if: (github.event_name != 'workflow_dispatch' || inputs.e2e) && contains(needs.prepare.outputs.arches, 'amd64') && needs.build.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:

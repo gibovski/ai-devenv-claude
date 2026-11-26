@@ -6,7 +6,7 @@
 ## Context
 
 We need a reproducible, code-defined AI development environment that runs as a VM on a
-developer's machine (first target: Windows + Hyper-V on amd64), is rebuilt daily for both
+developer's machine (first target: Windows + Hyper-V on amd64), is rebuilt on change for both
 `amd64` and `arm64`, and lets Claude or ChatGPT queue work for a pool of coding agents.
 OpenAI is building a parallel version, so this project lives only in new `-claude` repos.
 
@@ -18,7 +18,7 @@ OpenAI is building a parallel version, so this project lives only in new `-claud
   native runner is available, else under emulation.
 * **Formats**: qcow2 is the build output; `qemu-img` converts it to VHDX (Hyper-V Gen2),
   OVA (VirtualBox/VMware) and compressed raw. Files over 2 GB are split for GitHub Releases.
-* **Schedule**: daily at 03:17 UTC plus manual dispatch. Tags are `vYYYY.MM.DD`. The last 7
+* **Schedule**: on push to main touching image inputs, monthly (1st, 03:17 UTC) for patches, plus manual dispatch. (Was daily until 2026-11-27.) Tags are `vYYYY.MM.DD`. The last 7
   releases are kept.
 * **First boot**: cloud-init (NoCloud seed, or the baked default) creates the `dev` user,
   hostname `devenv`, and a systemd unit starts the Docker Compose stack. The console and SSH

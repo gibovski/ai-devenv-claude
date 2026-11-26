@@ -2,7 +2,7 @@
 
 A fully code-defined AI development environment.
 
-* **Daily VM images** for `amd64` and `arm64` (Ubuntu 24.04 LTS), built by GitHub Actions with Packer, published to GitHub Releases as VHDX (Hyper-V), qcow2 (KVM/Proxmox/UTM), OVA (VirtualBox/VMware) and raw.
+* **VM images** for `amd64` and `arm64` (Ubuntu 24.04 LTS), built by GitHub Actions with Packer whenever their inputs change on main (plus a monthly patch rebuild), published to GitHub Releases as VHDX (Hyper-V), qcow2 (KVM/Proxmox/UTM), OVA (VirtualBox/VMware) and raw.
 * **Headless first boot**: the VM starts a Docker stack and prints the URL of its browser **Settings UI** on the console.
 * **Settings UI** for GitHub, OpenAI, Anthropic and Cloudflare credentials, the number of Claude and OpenAI coding agents, and the model for each (with a token-usage tier from very high to low). Applying settings re-renders and re-deploys the stack.
 * **Agent dashboard** showing the availability and status of every coding agent.
