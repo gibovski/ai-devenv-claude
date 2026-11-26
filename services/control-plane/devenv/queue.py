@@ -4,6 +4,7 @@ import time
 
 from fastapi import HTTPException
 
+from . import routing
 from .db import Database
 
 ACTIVE = ("in_progress",)
@@ -145,10 +146,13 @@ def create_tasks(db: Database, items: list[dict], created_by: str, default_max_a
     keys: dict[str, int] = {}
     with db.tx() as conn:
         ids = []
+        notes: dict[int, str] = {}
         for it in items:
+            note = routing.route(it)
             cur = conn.execute(
                 "INSERT INTO tasks(title, description, repo, base_branch, priority, provider, max_attempts, plan_key, "
-                "created_by, complexity, model, effort, model_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "created_by, complexity, model, effort, model_reason, needs_images) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     it["title"],
                     it.get("description", ""),
@@ -163,9 +167,12 @@ def create_tasks(db: Database, items: list[dict], created_by: str, default_max_a
                     it.get("model", ""),
                     it.get("effort", ""),
                     it.get("model_reason", ""),
+                    int(it["needs_images"]),
                 ),
             )
             ids.append(cur.lastrowid)
+            if note:
+                notes[cur.lastrowid] = note
             if it.get("key"):
                 if str(it["key"]) in keys:
                     raise HTTPException(400, f"Duplicate key {it['key']}")
@@ -190,6 +197,8 @@ def create_tasks(db: Database, items: list[dict], created_by: str, default_max_a
                 "INSERT INTO task_events(task_id, kind, message) VALUES (?, 'status', ?)",
                 (tid, f"queued by {created_by}"),
             )
+            if tid in notes:
+                conn.execute("INSERT INTO task_events(task_id, kind, message) VALUES (?, 'log', ?)", (tid, notes[tid]))
     return ids
 
 

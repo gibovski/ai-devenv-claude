@@ -163,6 +163,12 @@ def build_prompt(task: dict, branch: str, attachments: list[str], att_dir: Path)
         )
     if task.get("pr_url"):
         prev += f"\n- The existing pull request is {task['pr_url']}; push fixes to it rather than opening a new one."
+    if task.get("needs_images"):
+        prev += (
+            "\n- This task needs new images. Generate them with your image generation tool, save them as files in"
+            " the repository (or the current directory) with sensible names and sizes, and reference them where they"
+            " are used. Do not use placeholders or download images from the web."
+        )
     template = (HERE / ("prompt.md" if task["repo"] else "prompt-norepo.md")).read_text()
     return template.format(
         id=task["id"], title=task["title"], description=task["description"] or "(no further description)",

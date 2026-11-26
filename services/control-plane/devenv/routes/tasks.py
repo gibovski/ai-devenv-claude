@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from .. import queue, repos
+from .. import queue, repos, routing
 from ..auth import Principal, require
 from ..catalogue.loader import complexity_levels
 from ..state import load_settings
@@ -40,6 +40,7 @@ class TaskIn(BaseModel):
     model: str = Field("", max_length=100, description="A specific model id; overrides the complexity rating")
     effort: str = Field("", pattern="^(|low|medium|high|xhigh|max)$")
     model_reason: str = Field("", max_length=500, description="Why this complexity or model")
+    needs_images: bool = Field(False, description="The task must generate images; it runs only on Codex agents")
     depends_on: list[str | int] = Field(default_factory=list, description="Keys from this plan or existing task ids")
 
 
@@ -58,6 +59,7 @@ class TaskPatch(BaseModel):
     model: str | None = Field(None, max_length=100)
     effort: str | None = Field(None, pattern="^(|low|medium|high|xhigh|max)$")
     model_reason: str | None = Field(None, max_length=500)
+    needs_images: bool | None = None
     action: str | None = Field(None, pattern="^(cancel|requeue|mark_done)$")
 
 
@@ -158,6 +160,12 @@ def patch_task(task_id: int, body: TaskPatch, request: Request):
     if "repo" in fields:
         fields["repo"] = _repo(fields["repo"], load_settings(db))
     _check_model(fields)
+    if fields.keys() & {"title", "description", "provider", "needs_images"}:
+        merged = {**task, **fields}
+        note = routing.route(merged, detect="needs_images" not in fields)
+        fields["provider"], fields["needs_images"] = merged["provider"], int(merged["needs_images"])
+        if note:
+            queue.event(db, task_id, "log", note)
     if fields:
         db.run(
             f"UPDATE tasks SET {', '.join(f'{k} = ?' for k in fields)}, updated_at = ? WHERE id = ?",

@@ -43,8 +43,13 @@ OpenAI is building a parallel version, so this project lives only in new `-claud
 * **Queue**: a task is `ready` only when every dependency is `done`. Cycles are rejected.
   Uploaded files are copied into the worker's workspace when the task is claimed.
 * **Definition of done**: the agent must create a branch, commit, push and open a PR; the
-  control plane marks the task `done` only when the GitHub API shows the PR merged into
-  `main` and, if the repo defines a deploy hook, the deploy succeeded.
+  control plane marks the task `done` only when the GitHub API shows the PR's checks ran and
+  passed (a PR with no checks goes back to the agent to add CI, unless `.devenv.yaml` sets
+  `checks: {required: false}`), the PR merged into `main` and, if the repo deploys (`deploy.yml`,
+  `.devenv.yaml` `deploy.workflow`, or a workflow named for deploy/pages/release/publish that runs
+  for the merge commit), the deploy succeeded.
+* **Image work**: Claude agents cannot generate images, so tasks flagged `needs_images` (or whose
+  text plainly asks for generated images) run only on Codex agents.
 
 ### Controllers
 * Claude ("Baz") and ChatGPT talk to the same **OpenAPI** and a **remote MCP server**

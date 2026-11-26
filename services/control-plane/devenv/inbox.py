@@ -14,6 +14,7 @@ body set fields and are removed from the description (case-insensitive):
     reason: why that complexity
     priority: 5
     provider: any | claude | codex
+    needs-images: yes          (generates images: runs on a Codex agent only)
     model: claude-sonnet-5-5
     effort: low | medium | high | xhigh | max
     base: main
@@ -40,7 +41,7 @@ log = logging.getLogger(__name__)
 
 TRUSTED = {"OWNER", "MEMBER", "COLLABORATOR"}
 FIELD_RE = re.compile(
-    r"^\s*(?:[-*]\s*)?\**(repo|depends[- ]on|complexity|reason|priority|provider|model|effort|base|attach)\**\s*:\s*(.+?)\s*$",
+    r"^\s*(?:[-*]\s*)?\**(repo|depends[- ]on|complexity|reason|priority|provider|model|effort|base|attach|needs[- ]images)\**\s*:\s*(.+?)\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
 MAX_ATTACHMENT = 20 * 1024 * 1024
@@ -232,6 +233,7 @@ class Inbox:
             "model": f.get("model") or "",
             "effort": effort,
             "model_reason": f.get("reason") or "",
+            "needs_images": (f.get("needs-images") or "").lower() in ("yes", "true", "y", "1"),
             "depends_on": deps,
         }
 

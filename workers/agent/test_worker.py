@@ -121,3 +121,12 @@ def test_unavailable_model_falls_back_to_settings(monkeypatch, tmp_path):
     calls.clear()
     monkeypatch.setattr(w, "_run_agent", lambda *a: calls.append(a[3]) or (1, "tests failed"))
     assert w.run_agent("p", tmp_path, Rep(), {"model": "claude-haiku-5-5"})[0] == 1 and len(calls) == 1
+
+
+def test_image_tasks_are_told_to_generate_images():
+    import devenv_worker as w
+
+    task = {"id": 7, "title": "Logo", "description": "", "repo": "me/app", "base_branch": "main", "needs_images": 1}
+    assert "image generation tool" in w.build_prompt(task, "b", [], w.Path("/tmp"))
+    assert "image generation tool" not in w.build_prompt({**task, "needs_images": 0}, "b", [], w.Path("/tmp"))
+    assert "image generation tool" in w.build_prompt({**task, "repo": ""}, "", [], w.Path("/tmp"))

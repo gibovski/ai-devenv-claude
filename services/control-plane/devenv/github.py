@@ -61,6 +61,12 @@ class GitHub:
     def has_file(self, repo: str, path: str, ref: str) -> bool:
         return self.get(f"/repos/{repo}/contents/{path}", ref=ref) is not None
 
+    def workflow_files(self, repo: str, ref: str) -> list[str]:
+        items = self.get(f"/repos/{repo}/contents/.github/workflows", ref=ref)
+        return sorted(
+            i["name"] for i in items or [] if isinstance(i, dict) and i.get("name", "").endswith((".yml", ".yaml"))
+        )
+
     def workflow_runs(self, repo: str, workflow: str, sha: str) -> list[dict]:
         data = self.get(f"/repos/{repo}/actions/workflows/{workflow}/runs", head_sha=sha, per_page=20) or {}
         return data.get("workflow_runs", [])
