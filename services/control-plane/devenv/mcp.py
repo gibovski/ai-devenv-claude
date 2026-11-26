@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from . import __version__, auth, queue
 from .catalogue.loader import catalogue
-from .routes.agents import agent_status
+from .routes.agents import StartIn, agent_status, availability_warnings, start_agents
 from .routes.tasks import PlanIn, TaskPatch, _create, patch_task
 
 router = APIRouter(tags=["mcp"])
@@ -32,6 +32,11 @@ MODEL_PROPS = {
         "type": "string",
         "enum": ["low", "medium", "high", "xhigh", "max"],
         "description": "Overrides the effort",
+    },
+    "needs_images": {
+        "type": "boolean",
+        "description": "True when the task must generate images (logo, icons, artwork). Claude agents cannot, "
+        "so these run only on OpenAI Codex agents",
     },
 }
 
@@ -55,7 +60,7 @@ TASK_SCHEMA = {
         "provider": {"type": "string", "enum": ["any", "claude", "codex"]},
         **MODEL_PROPS,
     },
-    "required": ["title"],
+    "required": ["title", "complexity"],
 }
 
 TOOLS = [
@@ -145,6 +150,19 @@ TOOLS = [
         "inputSchema": {"type": "object", "properties": {"repo": {"type": "string"}}, "required": ["repo"]},
     },
     {
+        "name": "start_agents",
+        "description": "Start agents of one kind (raises the count in Settings and applies it). Only call this "
+        "after the person has said yes, e.g. when create_tasks warns that no Codex agent is available.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "provider": {"type": "string", "enum": ["claude", "codex"]},
+                "count": {"type": "integer", "description": "At least this many (default 1)"},
+            },
+            "required": ["provider"],
+        },
+    },
+    {
         "name": "get_planning_guide",
         "description": "How to break an idea into the smallest practical tasks with dependencies for this queue.",
         "inputSchema": {"type": "object", "properties": {}},
@@ -203,16 +221,19 @@ def call_tool(request: Request, p: auth.Principal, name: str, args: dict) -> dic
         created = _create(request, PlanIn.model_validate(args), p)
         return _text(
             {
+                "warnings": availability_warnings(request, created),
                 "created": [
                     {
                         "id": t["id"],
                         "key": t["plan_key"],
                         "title": t["title"],
                         "state": t["state"],
+                        "provider": t["provider"],
+                        "needs_images": bool(t["needs_images"]),
                         "depends_on": [d["id"] for d in t["deps"]],
                     }
                     for t in created
-                ]
+                ],
             }
         )
     if name == "list_tasks":
@@ -229,6 +250,7 @@ def call_tool(request: Request, p: auth.Principal, name: str, args: dict) -> dic
                             "title",
                             "state",
                             "repo",
+                            "provider",
                             "complexity",
                             "model",
                             "attempts",
@@ -261,7 +283,17 @@ def call_tool(request: Request, p: auth.Principal, name: str, args: dict) -> dic
                 400, "Controllers cannot mark tasks done; the definition of done is checked automatically"
             )
         t = patch_task(int(args["id"]), body, request)
-        return _text({"id": t["id"], "status": t["status"], "state": t["state"]})
+        return _text(
+            {
+                "id": t["id"],
+                "status": t["status"],
+                "state": t["state"],
+                "provider": t["provider"],
+                "warnings": availability_warnings(request, [t]),
+            }
+        )
+    if name == "start_agents":
+        return _text(start_agents(request, StartIn.model_validate(args)))
     if name == "upload_file":
         from .routes.tasks import _dir, safe_name
 

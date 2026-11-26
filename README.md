@@ -7,7 +7,8 @@ A fully code-defined AI development environment.
 * **Settings UI** for GitHub, OpenAI, Anthropic and Cloudflare credentials, the number of Claude and OpenAI coding agents, and the model for each (with a token-usage tier from very high to low). Applying settings re-renders and re-deploys the stack.
 * **Agent dashboard** showing the availability and status of every coding agent.
 * **Work queue** with dependencies (a task stays queued until every dependency is done), file uploads, a list view and a dependency graph.
-* **Definition of done**: committed, pushed, merged to `main`, deployed if relevant — checked by the control plane through the GitHub API.
+* **Definition of done** (the same for Claude and Codex agents): committed, pushed, tested (the PR's CI checks ran and passed), merged to `main`, deployed if relevant — checked by the control plane through the GitHub API.
+* **Right agent for the job**: each task's complexity rating picks the model and effort the agent runs with; tasks that need generated images go only to OpenAI Codex agents, and the controller is warned (and can offer to start one) when none is running.
 * **Controller interface**: an OpenAPI + remote MCP server, so Claude or ChatGPT can break ideas into the smallest practical tasks and queue them.
 * **Tunnels as code**: Cloudflare Tunnel + Access via Terraform so a remote controller can see the agents.
 * **Plugins/MCP as code**: `mcp/mcp.yaml` is rendered into each agent's config; changes are picked up automatically.

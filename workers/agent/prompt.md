@@ -16,7 +16,9 @@ The task is done only when ALL of these are true. The queue checks them through 
 2. The branch is pushed to `origin`.
 3. A pull request from `{branch}` into `{base_branch}` is open (create it with `gh pr create --base {base_branch} --head {branch}`
    if it does not exist; give it a clear title and a body that explains the change and how you tested it).
-4. The pull request's checks pass. Run the project's tests and linters locally before pushing.
+4. The change is tested: add or update automated tests that cover it, run the project's tests and linters
+   locally before pushing, and make sure the pull request's checks pass. If the repository has no CI workflow
+   that runs its tests on pull requests, add one; a pull request with no checks is not done.
 5. The pull request gets merged into `{base_branch}` (the queue merges it when checks pass; do NOT merge it yourself).
 6. If the repository has a deploy workflow, it deploys the merge commit successfully.
 

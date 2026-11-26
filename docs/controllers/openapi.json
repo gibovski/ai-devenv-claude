@@ -486,6 +486,28 @@
     "title": "Settings",
     "type": "object"
    },
+   "StartIn": {
+    "properties": {
+     "count": {
+      "default": 1,
+      "description": "At least this many agents of that kind",
+      "maximum": 16.0,
+      "minimum": 1.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "provider": {
+      "pattern": "^(claude|codex)$",
+      "title": "Provider",
+      "type": "string"
+     }
+    },
+    "required": [
+     "provider"
+    ],
+    "title": "StartIn",
+    "type": "object"
+   },
    "TaskIn": {
     "properties": {
      "base_branch": {
@@ -563,6 +585,12 @@
       "maxLength": 500,
       "title": "Model Reason",
       "type": "string"
+     },
+     "needs_images": {
+      "default": false,
+      "description": "The task must generate images; it runs only on Codex agents",
+      "title": "Needs Images",
+      "type": "boolean"
      },
      "priority": {
       "default": 0,
@@ -665,6 +693,17 @@
        }
       ],
       "title": "Model Reason"
+     },
+     "needs_images": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Needs Images"
      },
      "priority": {
       "anyOf": [
@@ -797,6 +836,45 @@
      }
     },
     "summary": "Agents",
+    "tags": [
+     "agents"
+    ]
+   }
+  },
+  "/api/agents/start": {
+   "post": {
+    "operationId": "start_api_agents_start_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StartIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start",
     "tags": [
      "agents"
     ]
